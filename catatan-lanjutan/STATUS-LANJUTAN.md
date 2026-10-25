@@ -52,7 +52,8 @@ Tidak berisi kata sandi atau kode rahasia.
     (`hitungIntegritasSatpas`: `fotoCwKej`/`fotoCkKej`, `kejadian` per anggota, `kejadian:` di `hasil.push`),
     `PenilaianCw.gs` (sama, kelompok CW) dan `NilaiAplikasi.gs` (`detail.kejadian`). Cadangan sebelum perubahan:
     `apps-script/cadangan-sebelum-B4/` (tidak di-git, Code.gs memuat NRP admin).
-  - Aplikasi (`web/`, cache `cw-pagi-v50`) aman dipasang sebelum server: tanpa `detail.kejadian` tampilan tetap seperti dulu.
+  - Aplikasi (`web/`, cache `cw-pagi-v50`) **tayang** 26 Okt 2026 pagi: branch `claude/pantauan-pengawas` di-push dan
+    `main` di-fast-forward ke `47c0bbe` (termasuk PR #1 Pembinaan & tab Pantauan). Tanpa `detail.kejadian` tampilan tetap seperti dulu.
   - Setelah deploy: jalankan Hitung sekarang (atau tunggu hitungan terjadwal) agar NILAI APLIKASI berisi kejadian;
     cek di Nilai Saya satu anggota yang punya catatan.
 
