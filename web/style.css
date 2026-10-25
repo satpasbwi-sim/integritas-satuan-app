@@ -193,7 +193,7 @@ textarea {
   background: var(--navy); border-top: 2px solid var(--gold);
 }
 .ticker-track { display: flex; width: max-content; height: 28px; align-items: center; animation: ticker 40s linear infinite; }
-.ticker-track span { color: var(--gold); font-size: .78rem; font-weight: 700; letter-spacing: .08em; white-space: nowrap; padding-right: 4em; }
+.ticker-track span { color: var(--gold); font-size: .66rem; font-weight: 600; letter-spacing: .04em; white-space: nowrap; padding-right: 4em; }
 @keyframes ticker { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 @media (prefers-reduced-motion: reduce) {
   .ticker-track { animation: none; width: 100%; justify-content: center; }
