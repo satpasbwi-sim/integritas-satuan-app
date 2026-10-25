@@ -60,3 +60,15 @@ function kejadianLuar_(daftar, bulan, hari) {
     catatKejadian_(daftar, bulan, Number(t), 'lokasi', 'di luar radius lebih dari ' + LUAR_RADIUS_MENIT + ' menit' + (hari[t] > 1 ? ' (' + hari[t] + '×)' : ''));
   });
 }
+
+/** Jalankan dari editor: hitung bulan berjalan TANPA menulis sheet apa pun, catat ringkasan kejadian di log. */
+function ujiKejadian() {
+  const tz = SpreadsheetApp.getActive().getSpreadsheetTimeZone();
+  const hari = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+  const opsi = { dari: hari.slice(0, 8) + '01', sampai: hari, tanpaTulis: true, label: 'uji kejadian' };
+  const r = hitungIntegritasSatpas(opsi);
+  const ada = (r.hasil || []).filter(function (h) { return h.kejadian && h.kejadian.length; });
+  Logger.log('satpas: ' + (r.hasil || []).length + ' dinilai · ' + ada.length + ' punya kejadian · periode ' + r.periode);
+  ada.slice(0, 5).forEach(function (h) { Logger.log(h.baris[1] + ': ' + JSON.stringify(h.kejadian.slice(0, 5))); });
+  Logger.log('cw: ' + hitungPenilaianCw({ dari: opsi.dari, sampai: hari, tanpaTulis: true, label: 'uji kejadian' }) + ' dinilai (tanpa error)');
+}

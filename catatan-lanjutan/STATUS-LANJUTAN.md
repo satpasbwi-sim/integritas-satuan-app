@@ -26,7 +26,7 @@ Tidak berisi kata sandi atau kode rahasia.
 | Bonus konsistensi | Mingguan/bulanan, ≥5 hari dinilai & ≥90% hari sempurna → +2 skor (maks 100, tidak bila ⚠️ PALSU). | Server |
 | Pengingat | Banner + notifikasi (bila diizinkan) untuk Lapor Datang/Selesai & Ceklok Masuk/Pulang; hanya saat aplikasi terbuka/di latar belakang. | Aplikasi |
 | Sheet PANDUAN | Ditulis ulang lewat `Panduan.gs` (fungsi `perbaruiPanduan`). Diperbarui 24 Okt 2026 malam untuk hari pertama resmi: jam Lapor Datang (06.15 / 06.30 / 07.15), PERSETUJUAN harian sebelum 15.00, verifikasi ⚠️ sebelum ±07.30 (bukti lemah otomatis ASLI), CEK FOTO, foto 3 hari, LUAR RADIUS, laporan tertunda ≤20 mnt, bagian mode resmi dibalik, tab Pembinaan, Ganti Bulan sebelum 06.00 (juga teks 🩺 Cek di Kode.gs; tanpa deploy baru). | Spreadsheet |
-| Deploy server | **Versi 55** (24 Okt 2026, 21.12; Pantauan pengawas & admin: `Pantauan.gs` + `action=pantauan` dan tanda `pantauan: true` untuk pengawas/admin di Kode.gs). Versi 54 (20.36; Peringatan dini pembinaan: `Pembinaan.gs` + `action=pembinaan` dan tanda `pembinaan: true` untuk pengawas/admin di Kode.gs). Versi 53 (14.49): CEK FOTO TIDAK SESUAI −30. Versi 52 (14.10): perbaikan baris ABSENSI tanpa NRP ("Pos 12.04 …", "Patwal R4", "3 Pers Laka") tetap diperlakukan uji coba, dan INTEGRITAS HARIAN menulis "Uji coba – data sudah direset" untuk anggota uji coba. | Apps Script |
+| Deploy server | **Versi 56** (26 Okt 2026, 05.50; B4 alasan potongan per kejadian: `Kejadian.gs` + Code.gs / PenilaianCw.gs / NilaiAplikasi.gs). Versi 55 (24 Okt 2026, 21.12; Pantauan pengawas & admin: `Pantauan.gs` + `action=pantauan` dan tanda `pantauan: true` untuk pengawas/admin di Kode.gs). Versi 54 (20.36; Peringatan dini pembinaan: `Pembinaan.gs` + `action=pembinaan` dan tanda `pembinaan: true` untuk pengawas/admin di Kode.gs). Versi 53 (14.49): CEK FOTO TIDAK SESUAI −30. Versi 52 (14.10): perbaikan baris ABSENSI tanpa NRP ("Pos 12.04 …", "Patwal R4", "3 Pers Laka") tetap diperlakukan uji coba, dan INTEGRITAS HARIAN menulis "Uji coba – data sudah direset" untuk anggota uji coba. | Apps Script |
 | Aplikasi (GitHub Pages) | Commit `76fba4d`, cache service worker `cw-pagi-v39`. | GitHub |
 
 ## BELUM DIKERJAKAN / BELUM DIUJI
@@ -44,7 +44,11 @@ Tidak berisi kata sandi atau kode rahasia.
 - [x] **B4 Alasan potongan per kejadian** di Nilai Saya (26 Okt 2026): bagian "Penyebab nilai berkurang", per tanggal +
   label unsur, mis. "Rabu, 28 Okt · Ketepatan waktu · Ceklok Masuk terlambat 3 mnt (pukul 07.33)". Tanpa angka aturan nilai
   (sesuai kebijakan aplikasi). Juga tampil di rincian nama pada Rekap Integritas (pengawas/admin).
-  - Server (BELUM DIDEPLOY): file baru `Kejadian.gs` (salinan di `catatan-lanjutan/server/`); perubahan di `Code.gs`
+  - Server **TERPASANG Versi 56** (26 Okt 2026, 05.50). `ujiKejadian` (Kejadian.gs, hanya menghitung, tidak menulis) jalan
+    tanpa error: satpas 24 dinilai, CW 50 dinilai, 0 kejadian (hari resmi pertama belum ditutup). Kejadian pertama
+    muncul setelah hitungan terjadwal ±07.30 / 09.00. `/exec?pin=00000001` → "PIN salah" (sehat).
+  - [ ] Cek siang 26/10: sheet NILAI APLIKASI kolom DETAIL berisi `"kejadian"` untuk anggota yang terlambat / belum lapor.
+  - Server: file baru `Kejadian.gs` (salinan di `catatan-lanjutan/server/`); perubahan di `Code.gs`
     (`hitungIntegritasSatpas`: `fotoCwKej`/`fotoCkKej`, `kejadian` per anggota, `kejadian:` di `hasil.push`),
     `PenilaianCw.gs` (sama, kelompok CW) dan `NilaiAplikasi.gs` (`detail.kejadian`). Cadangan sebelum perubahan:
     `apps-script/cadangan-sebelum-B4/` (tidak di-git, Code.gs memuat NRP admin).
