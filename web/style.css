@@ -354,6 +354,18 @@ h2.t { margin: 0 0 4px; font-size: 1.05rem; }
 @media (max-width: 420px) {
   .seg button { padding: 8px; font-size: .75rem; }
 }
+/* .seg kedua (Nilai Saya) jangan ikut menambah jarak & latar pada tombol Hadir/Tidak di Rekap Admin */
+.person .seg { margin: 0; padding: 0; gap: 0; background: var(--card); }
+.person .seg button { border-radius: 0; }
+
+/* ---------- Sentuhan visual: centang "tercatat" muncul, tombol terasa ditekan ---------- */
+/* (kartu tidak dianimasikan: Lapor CW digambar ulang tiap 20 detik, animasi akan berulang) */
+@media (prefers-reduced-motion: no-preference) {
+  .done .ic { animation: pop .45s cubic-bezier(.2, 1.4, .4, 1); }
+  .btn:not(:disabled):active, .mode button:active { transform: scale(.97); }
+}
+@keyframes pop { 0% { transform: scale(.4); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+.salam { margin: 0 0 2px; font-size: .78rem; font-weight: 700; color: var(--muted); letter-spacing: .02em; }
 
 /* ---------- Form kode admin ---------- */
 
