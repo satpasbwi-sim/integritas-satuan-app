@@ -365,6 +365,15 @@ h2.t { margin: 0 0 4px; font-size: 1.05rem; }
   .btn:not(:disabled):active, .mode button:active { transform: scale(.97); }
 }
 @keyframes pop { 0% { transform: scale(.4); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+/* ---------- Nilai Saya: penyebab nilai berkurang per kejadian ---------- */
+.kej { border: 1px solid var(--line); border-radius: 12px; padding: 4px 12px 8px; }
+.kej-tgl { margin: 10px 0 2px; font-size: .72rem; font-weight: 800; letter-spacing: .03em; color: var(--muted); text-transform: uppercase; }
+.kej-i { display: flex; gap: 8px; align-items: baseline; padding: 6px 0; border-top: 1px dashed var(--line); font-size: .85rem; line-height: 1.4; }
+.kej-tgl + .kej-i, .kej > .kej-i:first-child { border-top: 0; }
+.kej-u { flex: 0 0 auto; font-size: .66rem; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: var(--bg); color: var(--muted); border: 1px solid var(--line); }
+.kej-u.u-tepat, .kej-u.u-durasi, .kej-u.u-lengkap { background: var(--warn-bg); color: var(--warn); border-color: transparent; }
+.kej-u.u-hadir, .kej-u.u-ceklok, .kej-u.u-lokasi { background: var(--th-bg); color: var(--th); border-color: transparent; }
+.kej-semua { margin-top: 6px; }
 .salam { margin: 0 0 2px; font-size: .78rem; font-weight: 700; color: var(--muted); letter-spacing: .02em; }
 
 /* ---------- Form kode admin ---------- */

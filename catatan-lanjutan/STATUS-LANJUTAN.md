@@ -41,6 +41,17 @@ Tidak berisi kata sandi atau kode rahasia.
     setelah disetujui pemilik, lalu cek dengan akun pengawas / admin sungguhan.
   - [ ] Setelah 2 minggu data resmi: cek apakah tanda "Posisi nyaris sama" banyak yang keliru (`PANTAU_MIRIP_M`).
 
+- [x] **B4 Alasan potongan per kejadian** di Nilai Saya (26 Okt 2026): bagian "Penyebab nilai berkurang", per tanggal +
+  label unsur, mis. "Rabu, 28 Okt · Ketepatan waktu · Ceklok Masuk terlambat 3 mnt (pukul 07.33)". Tanpa angka aturan nilai
+  (sesuai kebijakan aplikasi). Juga tampil di rincian nama pada Rekap Integritas (pengawas/admin).
+  - Server (BELUM DIDEPLOY): file baru `Kejadian.gs` (salinan di `catatan-lanjutan/server/`); perubahan di `Code.gs`
+    (`hitungIntegritasSatpas`: `fotoCwKej`/`fotoCkKej`, `kejadian` per anggota, `kejadian:` di `hasil.push`),
+    `PenilaianCw.gs` (sama, kelompok CW) dan `NilaiAplikasi.gs` (`detail.kejadian`). Cadangan sebelum perubahan:
+    `apps-script/cadangan-sebelum-B4/` (tidak di-git, Code.gs memuat NRP admin).
+  - Aplikasi (`web/`, cache `cw-pagi-v50`) aman dipasang sebelum server: tanpa `detail.kejadian` tampilan tetap seperti dulu.
+  - Setelah deploy: jalankan Hitung sekarang (atau tunggu hitungan terjadwal) agar NILAI APLIKASI berisi kejadian;
+    cek di Nilai Saya satu anggota yang punya catatan.
+
 ### Wajib dicek hari pertama (26/10/2026)
 - [ ] Satu NRP resmi: Lapor/Ceklok mengikuti aturan resmi (ditolak di luar jam/radius/tanpa foto).
 - [ ] Setelah reset ±19.00, data NRP resmi hari itu masih ada di LOG LAPOR / LOG CEKLOK.

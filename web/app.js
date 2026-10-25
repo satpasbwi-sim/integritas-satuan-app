@@ -168,6 +168,26 @@
       .concat(u.lembur ? [['Lembur', Math.floor(u.lembur / 60) ? Math.floor(u.lembur / 60) + ' j ' + (u.lembur % 60) + ' m' : u.lembur + ' m', 'ok']] : []);
     return '<div class="chips-hari">' + isi.map((x) => '<span class="lv ' + x[2] + '"><small>' + x[0] + '</small>' + esc(x[1]) + '</span>').join('') + '</div>';
   }
+  // alasan potongan per kejadian (server Kejadian.gs, detail.kejadian: [{tgl, u, t}], terbaru dulu), dikelompokkan per tanggal.
+  // Teks tanpa angka aturan nilai; daftar panjang dipotong sampai "Lihat semua" diketuk.
+  const UNSUR_KEJ = { hadir: 'Kehadiran', ceklok: 'Ceklok', lokasi: 'Lokasi & foto', tepat: 'Ketepatan waktu', lengkap: 'Kelengkapan', durasi: 'Durasi' };
+  const KEJ_RINGKAS = 6;
+  function kejadianHtml(list, semua, harian) {
+    if (!list || !list.length) return '';
+    const tampil = semua ? list : list.slice(0, KEJ_RINGKAS);
+    let html = '<div class="kej">', tgl = '';
+    tampil.forEach((x) => {
+      if (!harian && x.tgl !== tgl) {
+        tgl = x.tgl;
+        const d = new Date(tgl + 'T12:00:00');
+        html += '<div class="kej-tgl">' + (isNaN(d) ? '' : HARI[d.getDay()] + ', ') + esc(tglPendek(tgl)) + '</div>';
+      }
+      html += '<div class="kej-i"><span class="kej-u u-' + esc(x.u) + '">' + esc(UNSUR_KEJ[x.u] || x.u) + '</span>' + esc(tanpaNilai(x.t)) + '</div>';
+    });
+    if (list.length > tampil.length) html += '<button class="link kej-semua" data-a="kejSemua">Lihat semua (' + list.length + ')</button>';
+    return html + '</div>';
+  }
+  let kejSemua = false;   // Nilai Saya: daftar kejadian dibuka penuh
   function tglPendek(s) {
     const p = String(s || '').split('-');
     return p.length === 3 ? Number(p[2]) + ' ' + ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'][Number(p[1]) - 1] : s;
@@ -177,7 +197,8 @@
   function renderNilai() {
     const v = $('nilaiView');
     const ada = jenisAda(nilai && !nilai.error ? nilai : null);
-    if (!ada.includes(nilaiJenis)) nilaiJenis = 'harian';
+    // pilihan tersimpan baru diganti setelah nilai tiba (sebelum itu daftar periode belum lengkap)
+    if (!ada.includes(nilaiJenis) && nilai && !nilai.error) nilaiJenis = 'harian';
     const seg = '<div class="seg">' + ada.map((j) =>
       '<button data-j="' + j + '"' + (j === nilaiJenis ? ' class="on"' : '') + '>' + JENIS_NILAI[j] + '</button>').join('') + '</div>';
     const muatUlang = '<div class="switch"><button class="link muted-link" data-a="muatNilai">' +
@@ -199,9 +220,11 @@
         const jamHari = nilaiJenis === 'harian' && (dh.cw || dh.masuk) ? '<h3>Hari itu</h3><div class="chips-hari">' +
           [['CW Pagi', dh.cw], ['Ceklok masuk', dh.masuk], ['Ceklok pulang', dh.pulang]].filter((x) => x[1])
             .map((x) => '<span class="lv ' + esc(x[1][1]) + '"><small>' + x[0] + '</small>' + esc(tanpaNilai(x[1][0])) + '</span>').join('') + '</div>' : '';
-        const catatan = n.catatan.length
+        const kej = kejadianHtml(dh.kejadian, kejSemua, nilaiJenis === 'harian');
+        const catatan = (n.catatan.length
           ? '<h3>Perlu diperhatikan</h3><ul class="cat-nilai">' + n.catatan.map((c) => '<li>' + esc(tanpaNilai(c)) + '</li>').join('') + '</ul>'
-          : '<p class="sub ok-nilai">✓ Tidak ada catatan. Pertahankan!</p>';
+          : kej ? '' : '<p class="sub ok-nilai">✓ Tidak ada catatan. Pertahankan!</p>') +
+          (kej ? '<h3>Penyebab nilai berkurang</h3>' + kej : '');
         isi = '<div class="skor-box"><div class="ring ' + w + '" style="--p:' + Math.max(0, Math.min(100, n.skor)) + '"><b>' +
           String(n.skor).replace('.', ',') + '</b><small>dari 100</small></div><div class="skor-ket">' +
           '<span class="pred ' + w + '">' + esc(n.predikat) + '</span>' + teladanHtml(n) +
@@ -289,7 +312,8 @@
         '<div class="unsur-bar"><span>' + esc(u.n) + '</span><b>' + u.v + '</b><i><em class="' + warnaNilai(u.v) + '" style="width:' +
         Math.max(2, Math.min(100, u.v)) + '%"></em></i></div>').join('') +
         (r.catatan.length ? '<ul class="cat-nilai">' + r.catatan.map((c) => '<li>' + esc(tanpaNilai(c)) + '</li>').join('') + '</ul>'
-          : '<p class="sub ok-nilai">✓ Tidak ada catatan</p>') + '</div>' : '';
+          : d.kejadian && d.kejadian.length ? '' : '<p class="sub ok-nilai">✓ Tidak ada catatan</p>') +
+        kejadianHtml(d.kejadian, true, rekapJenis === 'harian') + '</div>' : '';
       return '<div class="rk-row' + (rekapBuka[k] ? ' buka' : '') + '" data-k="' + esc(k) + '"><div class="rk-top">' +
         '<span class="rk-no">' + (r.peringkat || '–') + '</span><div class="rk-nama"><b>' + (d.urut && d.urut.teladan ? '★ ' : '') + esc(r.nama) +
         (rekapSub === 'semua' && r.phl ? ' <span class="badge">PHL</span>' : '') + '</b>' +
@@ -323,7 +347,7 @@
   function renderRekapInt() {
     const v = $('rekapIntView');
     const ada = jenisAda(rekap && !rekap.error ? rekap : null);
-    if (!ada.includes(rekapJenis)) rekapJenis = 'harian';
+    if (!ada.includes(rekapJenis) && rekap && !rekap.error) rekapJenis = 'harian';
     const seg = '<div class="seg">' + ada.map((j) =>
       '<button data-j="' + j + '"' + (j === rekapJenis ? ' class="on"' : '') + '>' + JENIS_NILAI[j] + '</button>').join('') + '</div>';
     const kaki = '<div class="switch"><button class="link muted-link" data-a="muatRekap">' +
@@ -1937,7 +1961,8 @@
   $('nilaiView').addEventListener('click', (e) => {
     const b = e.target.closest('[data-j],[data-a]');
     if (!b) return;
-    if (b.dataset.j) { nilaiJenis = b.dataset.j; store('cw_nilai', nilaiJenis); return renderNilai(); }
+    if (b.dataset.j) { nilaiJenis = b.dataset.j; kejSemua = false; store('cw_nilai', nilaiJenis); return renderNilai(); }
+    if (b.dataset.a === 'kejSemua') { kejSemua = true; return renderNilai(); }
     if (b.dataset.a === 'muatNilai') return muatNilai();
     if (b.dataset.a === 'keluar') return logout();
   });
@@ -2190,7 +2215,7 @@
     Object.assign(ck, { tidak: false, alasan: '', note: '', keluar: false, jenis: '', lembur: '' });
     ulangCW = false; ulangCk = false;
     // pesan / pencarian milik NRP sebelumnya tidak terbawa ke NRP berikutnya di HP yang sama
-    pesanAntre = ''; rekapCari = ''; luar = null;
+    pesanAntre = ''; rekapCari = ''; luar = null; kejSemua = false;
     $('pin').value = '';
     showLogin('');
   }
