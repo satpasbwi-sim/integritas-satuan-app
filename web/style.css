@@ -365,6 +365,23 @@ h2.t { margin: 0 0 4px; font-size: 1.05rem; }
   .btn:not(:disabled):active, .mode button:active { transform: scale(.97); }
 }
 @keyframes pop { 0% { transform: scale(.4); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+/* ---------- Pantauan: tombol keputusan atasan (ASLI/PALSU, CEK FOTO, SETUJU/TOLAK, izinkan HP) ---------- */
+.pt-putus { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
+.pt-b { border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 999px; padding: 6px 12px;
+  font-size: .78rem; font-weight: 700; cursor: pointer; min-height: 34px; }
+.pt-b:disabled { opacity: .5; cursor: default; }
+.pt-b.pt-asli, .pt-b.pt-setuju, .pt-b.pt-ya, .pt-b.pt-sesuai { border-color: var(--hadir); color: var(--hadir); }
+.pt-b.pt-palsu, .pt-b.pt-tolak, .pt-b.pt-tidak { border-color: var(--th); color: var(--th); }
+.pt-b.pt-wajah, .pt-b.pt-seragam, .pt-b.pt-foto { border-color: #f0c674; color: var(--warn); }
+.pt-b.on { color: #fff; }
+.pt-b.on.pt-asli, .pt-b.on.pt-setuju, .pt-b.on.pt-ya, .pt-b.on.pt-sesuai { background: var(--hadir); }
+.pt-b.on.pt-palsu, .pt-b.on.pt-tolak, .pt-b.on.pt-tidak { background: var(--th); }
+.pt-b.on.pt-wajah, .pt-b.on.pt-seragam, .pt-b.on.pt-foto { background: #d97706; border-color: #d97706; }
+.pt-kirim { font-size: .72rem; color: var(--muted); }
+.pt-ok { font-size: .72rem; font-weight: 700; color: var(--hadir); }
+.cat-nilai li .pt-putus { margin: 6px 0 4px; }
+.pt-row .rk-nama small a, .cat-nilai a { color: var(--text); font-weight: 700; }
+
 /* ---------- Nilai Saya: penyebab nilai berkurang per kejadian ---------- */
 .kej { border: 1px solid var(--line); border-radius: 12px; padding: 4px 12px 8px; }
 .kej-tgl { margin: 10px 0 2px; font-size: .72rem; font-weight: 800; letter-spacing: .03em; color: var(--muted); text-transform: uppercase; }

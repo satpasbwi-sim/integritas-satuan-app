@@ -3,7 +3,10 @@
 //   pola        : kejadian mencurigakan 7 hari terakhir per orang (LOG LAPOR, LOG CEKLOK, LUAR RADIUS)
 //   persetujuan : pengajuan izin / tugas mendadak yang belum diputuskan (sheet PERSETUJUAN) dan yang sering mengajukan
 // Pengawas (NRP_PENGAWAS) hanya melihat anggota Satpas (Ceklok), sama seperti Rekap Integritas; admin melihat semua.
-// Keputusan tetap diisi di spreadsheet (VERIFIKASI, CEK FOTO, KEPUTUSAN). Rancangan: catatan-lanjutan/PANTAUAN-PENGAWAS.md
+//   foto        : foto FOTO_SIMPAN_HARI hari terakhir yang belum diisi CEK FOTO (sebelum terhapus otomatis)
+//   hp          : HP baru yang menunggu izin (sheet PERANGKAT)
+// Keputusan bisa diisi di spreadsheet atau lewat tombol di aplikasi (Keputusan.gs, memakai ref baris dari sini).
+// Rancangan: catatan-lanjutan/PANTAUAN-PENGAWAS.md
 
 const PANTAU_HARI = 7;            // jendela "Mencurigakan" (hari, termasuk hari ini)
 const PANTAU_TUNDA_MIN = 2;       // laporan tertunda (sinyal putus) baru dicurigai bila sekian kali dalam jendela
@@ -12,7 +15,8 @@ const PANTAU_MIRIP_HARI = 3;      // ... di sekian hari berbeda
 const PANTAU_MIRIP_AKURASI = 20;  // hanya titik dengan akurasi ≤ ini (m) yang dibandingkan
 const PANTAU_SERING_MIN = 3;      // "sering mengajukan" bila sekian pengajuan dalam bulan berjalan
 const PANTAU_BOBOT = { lokasi: 3, luar: 2, foto: 2, mirip: 2, tunda: 1 };
-const PANTAU_CACHE_DETIK = 300;   // bagian pola (membaca seluruh LOG); hari ini & persetujuan selalu terkini
+const PANTAU_CACHE_DETIK = 300;   // bagian pola & foto (membaca seluruh LOG); hari ini & persetujuan selalu terkini
+const PANTAU_FOTO_MAKS = 150;     // daftar "Cek foto": paling banyak sekian foto terbaru yang belum dicek
 
 function pantauanData_(who) {
   const semua = who.role === 'admin';
@@ -28,16 +32,20 @@ function pantauanData_(who) {
   out.hariIni.cw = null;
   if (semua) { try { out.hariIni.cw = pantauCwHariIni_(ss, tz, now); } catch (e) { out.hariIni.cw = { error: 'CW: ' + e.message }; } }
   const cache = CacheService.getScriptCache();
-  const kunci = 'pantauan_pola|' + out.lingkup;
+  const kunci = 'pantauan2|' + out.lingkup;   // dihapus Keputusan.gs setiap ada keputusan dari aplikasi
   const simpan = cache.get(kunci);
-  if (simpan) out.pola = JSON.parse(simpan);
+  if (simpan) { const c = JSON.parse(simpan); out.pola = c.pola; out.foto = c.foto; }
   else {
     try {
-      out.pola = hitungPolaPantau_(bacaKejadianPantau_(ss, tz, now, semua), PANTAU_HARI);
-      try { cache.put(kunci, JSON.stringify(out.pola), PANTAU_CACHE_DETIK); } catch (e) { /* terlalu besar: abaikan */ }
-    } catch (e) { out.pola = { error: 'Pola: ' + e.message }; }
+      const baca = bacaKejadianPantau_(ss, tz, now, semua);
+      out.pola = hitungPolaPantau_(baca.kejadian, PANTAU_HARI);
+      out.foto = baca.foto;
+      try { cache.put(kunci, JSON.stringify({ pola: out.pola, foto: out.foto }), PANTAU_CACHE_DETIK); } catch (e) { /* terlalu besar: abaikan */ }
+    } catch (e) { out.pola = { error: 'Pola: ' + e.message }; out.foto = []; }
   }
   try { out.persetujuan = pantauPersetujuan_(ss, tz, now, semua); } catch (e) { out.persetujuan = { error: 'Persetujuan: ' + e.message }; }
+  try { out.hp = typeof pantauHpBaru_ === 'function' ? pantauHpBaru_(ss, tz, semua) : []; } catch (e) { out.hp = []; }
+  out.cekFoto = Object.keys(CEK_FOTO);   // pilihan chip CEK FOTO, urutan sama dengan spreadsheet
   return out;
 }
 
@@ -126,22 +134,30 @@ function pantauCwHariIni_(ss, tz, now) {
 }
 
 // ---------- Mencurigakan ----------
-// Semua baris LOG LAPOR / LOG CEKLOK / LUAR RADIUS dalam jendela → kejadian mentah (tanpa SpreadsheetApp di hitungPolaPantau_)
+// Semua baris LOG LAPOR / LOG CEKLOK / LUAR RADIUS dalam jendela → {kejadian mentah, foto belum dicek}
+// (tanpa SpreadsheetApp di hitungPolaPantau_). Tiap baris LOG membawa ref {sumber, baris, ms, nama} untuk Keputusan.gs.
 function bacaKejadianPantau_(ss, tz, now, semua) {
   const mulai = Utilities.formatDate(new Date(now.getTime() - (PANTAU_HARI - 1) * 86400000), tz, 'yyyy-MM-dd');
-  const out = [];
+  const mulaiFoto = Utilities.formatDate(new Date(now.getTime() - (FOTO_SIMPAN_HARI - 1) * 86400000), tz, 'yyyy-MM-dd');
+  const out = [], foto = [];
   const baca = function (sh, sumber) {
     if (!sh || sh.getLastRow() < 2) return;
     const lebar = Math.min(KOL_CEK_FOTO, sh.getMaxColumns());
-    sh.getRange(2, 1, sh.getLastRow() - 1, lebar).getValues().forEach(function (r) {
+    sh.getRange(2, 1, sh.getLastRow() - 1, lebar).getValues().forEach(function (r, i) {
       if (!(r[0] instanceof Date)) return;
       const tgl = Utilities.formatDate(r[0], tz, 'yyyy-MM-dd');
       if (tgl < mulai) return;
-      out.push({ sumber: sumber, tgl: tgl, jam: Utilities.formatDate(r[0], tz, 'HH.mm'),
+      const k = { sumber: sumber, tgl: tgl, jam: Utilities.formatDate(r[0], tz, 'HH.mm'),
         nama: String(r[3] || '').trim(), nrp: sumber === 'CEKLOK' ? normIdSatpas_(r[2]) : '',
         status: String(r[sumber === 'CEKLOK' ? 4 : 5] || ''), acc: r[7] === '' ? null : Number(r[7]), peta: String(r[8] || ''),
         foto: driveId_(r[9]) ? String(r[9]) : '', catatan: String(r[10] || ''), peringatan: String(r[11] || ''),
-        verif: String(r[12] || '').trim().toUpperCase(), cekFoto: lebar >= KOL_CEK_FOTO ? String(r[13] || '').trim().toUpperCase() : '' });
+        verif: String(r[12] || '').trim().toUpperCase(), cekFoto: lebar >= KOL_CEK_FOTO ? String(r[13] || '').trim().toUpperCase() : '',
+        ref: { sumber: sumber, baris: i + 2, ms: r[0].getTime(), nama: String(r[3] || '').trim() } };
+      out.push(k);
+      if (k.foto && !k.cekFoto && tgl >= mulaiFoto) {
+        foto.push({ tgl: tgl, jam: k.jam, nama: k.nama, sumber: sumber, tahap: tahapPantau_(k), foto: k.foto,
+          ragu: !!k.peringatan && k.verif !== 'ASLI', ref: k.ref });
+      }
     });
   };
   if (semua) baca(ss.getSheetByName(SHEET_LOG), 'CW');
@@ -155,7 +171,12 @@ function bacaKejadianPantau_(ss, tz, now, semua) {
         nrp: normIdSatpas_(r[2]), durasi: Number(r[6]) || 0, jarak: r[7], peta: String(r[9] || '') });
     });
   }
-  return out;
+  foto.sort(function (a, b) { return b.ref.ms - a.ref.ms; });
+  return { kejadian: out, foto: foto.slice(0, PANTAU_FOTO_MAKS) };
+}
+
+function tahapPantau_(k) {
+  return k.sumber === 'CEKLOK' ? 'Ceklok ' + k.status.toLowerCase() : 'Lapor ' + (k.status === 'DATANG' ? 'datang' : k.status === 'H' ? 'selesai' : k.status.toLowerCase());
 }
 
 // inti aturan (bisa diuji terpisah): kejadian mentah → {hari, daftar: [{nama, nrp, bobot, ringkas, kejadian}]}
@@ -175,12 +196,12 @@ function hitungPolaPantau_(mentah, hari) {
         (k.jarak !== '' && k.jarak != null ? ' (maks ' + k.jarak + ' m)' : '') + ' setelah ' + (k.sumber === 'CEKLOK' ? 'Ceklok Masuk' : 'Lapor Datang') }, dasar));
       return;
     }
-    const tahap = k.sumber === 'CEKLOK' ? 'Ceklok ' + k.status.toLowerCase() : 'Lapor ' + (k.status === 'DATANG' ? 'datang' : k.status === 'H' ? 'selesai' : k.status.toLowerCase());
+    const tahap = tahapPantau_(k);
     if (k.peringatan && k.verif !== 'ASLI') {
       o.kejadian.push(Object.assign({ jenis: 'lokasi', ket: tahap + ': ' + k.peringatan.replace(/^⚠️\s*/, '') +
-        (k.verif === 'PALSU' ? ' · diverifikasi PALSU' : ' · belum diverifikasi') }, dasar));
+        (k.verif === 'PALSU' ? ' · diverifikasi PALSU' : ' · belum diverifikasi'), verif: k.verif, ref: k.ref }, dasar));
     }
-    if (k.cekFoto && k.cekFoto !== 'SESUAI') o.kejadian.push(Object.assign({ jenis: 'foto', ket: tahap + ': cek foto ' + k.cekFoto }, dasar));
+    if (k.cekFoto && k.cekFoto !== 'SESUAI') o.kejadian.push(Object.assign({ jenis: 'foto', ket: tahap + ': cek foto ' + k.cekFoto, cekFoto: k.cekFoto, ref: k.ref }, dasar));
     const t = /tertunda (\d+) mnt/.exec(k.catatan || '');
     if (t) o.tunda.push(Object.assign({ jenis: 'tunda', ket: tahap + ' tertunda ' + t[1] + ' menit (sinyal putus)' }, dasar));
     const m = /[?&]q=(-?[\d.]+),(-?[\d.]+)/.exec(k.peta || '');
@@ -237,9 +258,11 @@ function pantauPersetujuan_(ss, tz, now, semua) {
   const out = { menunggu: [], sering: [], url: semua && sh ? ss.getUrl() + '#gid=' + sh.getSheetId() : '' };
   if (!sh || sh.getLastRow() < 2) return out;
   const hariIni = Utilities.formatDate(now, tz, 'yyyy-MM-dd');
+  const waktu = sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues();   // ms untuk ref keputusan (Keputusan.gs)
   const rows = sh.getRange(2, 1, sh.getLastRow() - 1, SETUJU_HEADER.length).getDisplayValues()
-    .map(function (r) { return { tgl: String(r[1]), nrp: String(r[2]), nama: String(r[3]).trim(), jenis: String(r[4]),
-      pengajuan: String(r[5]), ket: String(r[6]), keputusan: String(r[7]).trim().toUpperCase() }; });
+    .map(function (r, i) { return { tgl: String(r[1]), nrp: String(r[2]), nama: String(r[3]).trim(), jenis: String(r[4]),
+      pengajuan: String(r[5]), ket: String(r[6]), keputusan: String(r[7]).trim().toUpperCase(),
+      ref: waktu[i][0] instanceof Date ? { sumber: 'SETUJU', baris: i + 2, ms: waktu[i][0].getTime(), nama: String(r[3]).trim() } : null }; });
   return hitungPersetujuanPantau_(rows, hariIni, semua, out);
 }
 
@@ -252,7 +275,7 @@ function hitungPersetujuanPantau_(rows, hariIni, semua, out) {
     const st = r.keputusan === 'SETUJU' || r.keputusan === 'TOLAK' ? r.keputusan : 'MENUNGGU';
     if (st === 'MENUNGGU') {
       out.menunggu.push({ tgl: r.tgl, umur: selisihHariPantau_(r.tgl, hariIni), nama: r.nama, jenis: r.jenis,
-        pengajuan: r.pengajuan, ket: r.ket });
+        pengajuan: r.pengajuan, ket: r.ket, ref: r.ref || null });
     }
     if (r.tgl.slice(0, 7) !== bulan) return;
     const k = normNama_(r.nama);
@@ -275,13 +298,14 @@ function selisihHariPantau_(a, b) {
 
 // Jalankan dari editor Apps Script (sebagai admin) untuk melihat hasil di Log eksekusi.
 function ujiPantauan() {
-  CacheService.getScriptCache().removeAll(['pantauan_pola|semua', 'pantauan_pola|satpas']);
+  CacheService.getScriptCache().removeAll(['pantauan2|semua', 'pantauan2|satpas']);
   const d = pantauanData_({ role: 'admin' });
   const ck = d.hariIni.ceklok || {}, cw = d.hariIni.cw || {};
   Logger.log('hariIni ' + d.hariIni.tgl + ' ' + d.hariIni.jam +
     ' · ceklok ' + (ck.error || ck.libur || JSON.stringify(ck.ringkas)) +
     ' · cw ' + (cw.error || cw.libur || JSON.stringify(cw.ringkas)));
   Logger.log('pola ' + (d.pola.error || d.pola.daftar.length + ' orang') + ' · persetujuan ' +
-    (d.persetujuan.error || d.persetujuan.menunggu.length + ' menunggu, ' + d.persetujuan.sering.length + ' sering'));
+    (d.persetujuan.error || d.persetujuan.menunggu.length + ' menunggu, ' + d.persetujuan.sering.length + ' sering') +
+    ' · foto belum dicek ' + (d.foto || []).length + ' · HP baru ' + (d.hp || []).length);
   Logger.log(JSON.stringify(d).slice(0, 6000));
 }

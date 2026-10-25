@@ -57,6 +57,17 @@ Tidak berisi kata sandi atau kode rahasia.
   - Setelah deploy: jalankan Hitung sekarang (atau tunggu hitungan terjadwal) agar NILAI APLIKASI berisi kejadian;
     cek di Nilai Saya satu anggota yang punya catatan.
 
+- [x] **Keputusan atasan 1-ketuk di tab Pantauan** (26 Okt 2026), kode selesai & diuji lokal, **BELUM DIDEPLOY / BELUM DI-PUSH**:
+  - Mencurigakan: tombol ASLI / PALSU (⚠️) dan chip CEK FOTO di rincian kejadian. Bagian baru **Cek foto**: foto 3 hari
+    terakhir yang belum dicek (maks 150, terbaru dulu) + chip CEK FOTO. Persetujuan: tombol SETUJU / TOLAK + daftar
+    **HP baru menunggu izin** dengan tombol "Izinkan HP baru".
+  - Server: file baru `Keputusan.gs` (aksi POST `putuskan`; salinan di `catatan-lanjutan/server/`), `Code.gs` (1 baris
+    di doPost), `Pantauan.gs` (ref baris, daftar foto & HP, kunci cache `pantauan2|`). Cadangan: `apps-script/cadangan-sebelum-keputusan/`.
+  - Menulis ke sel yang sama dengan isian manual + catatan sel "Lewat aplikasi oleh …" (jejak audit). Pengawas hanya data
+    Satpas (LOG CEKLOK, pengajuan CEKLOK, HP anggota Satpas); admin semua. Baris dicari ulang lewat WAKTU + NAMA.
+  - ASLI/PALSU Lapor CW langsung menyinkronkan ABSENSI N ↔ H (`verifikasiCw_`).
+  - Aplikasi `web/` cache `cw-pagi-v51`. Server lama: bagian Cek foto & tombol tidak tampil (aman dipasang lebih dulu).
+
 ### Wajib dicek hari pertama (26/10/2026)
 - [ ] Satu NRP resmi: Lapor/Ceklok mengikuti aturan resmi (ditolak di luar jam/radius/tanpa foto).
 - [ ] Setelah reset ±19.00, data NRP resmi hari itu masih ada di LOG LAPOR / LOG CEKLOK.
