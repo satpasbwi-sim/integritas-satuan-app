@@ -26,7 +26,7 @@ Tidak berisi kata sandi atau kode rahasia.
 | Bonus konsistensi | Mingguan/bulanan, ≥5 hari dinilai & ≥90% hari sempurna → +2 skor (maks 100, tidak bila ⚠️ PALSU). | Server |
 | Pengingat | Banner + notifikasi (bila diizinkan) untuk Lapor Datang/Selesai & Ceklok Masuk/Pulang; hanya saat aplikasi terbuka/di latar belakang. | Aplikasi |
 | Sheet PANDUAN | Ditulis ulang lewat `Panduan.gs` (fungsi `perbaruiPanduan`). Diperbarui 24 Okt 2026 malam untuk hari pertama resmi: jam Lapor Datang (06.15 / 06.30 / 07.15), PERSETUJUAN harian sebelum 15.00, verifikasi ⚠️ sebelum ±07.30 (bukti lemah otomatis ASLI), CEK FOTO, foto 3 hari, LUAR RADIUS, laporan tertunda ≤20 mnt, bagian mode resmi dibalik, tab Pembinaan, Ganti Bulan sebelum 06.00 (juga teks 🩺 Cek di Kode.gs; tanpa deploy baru). | Spreadsheet |
-| Deploy server | **Versi 56** (26 Okt 2026, 05.50; B4 alasan potongan per kejadian: `Kejadian.gs` + Code.gs / PenilaianCw.gs / NilaiAplikasi.gs). Versi 55 (24 Okt 2026, 21.12; Pantauan pengawas & admin: `Pantauan.gs` + `action=pantauan` dan tanda `pantauan: true` untuk pengawas/admin di Kode.gs). Versi 54 (20.36; Peringatan dini pembinaan: `Pembinaan.gs` + `action=pembinaan` dan tanda `pembinaan: true` untuk pengawas/admin di Kode.gs). Versi 53 (14.49): CEK FOTO TIDAK SESUAI −30. Versi 52 (14.10): perbaikan baris ABSENSI tanpa NRP ("Pos 12.04 …", "Patwal R4", "3 Pers Laka") tetap diperlakukan uji coba, dan INTEGRITAS HARIAN menulis "Uji coba – data sudah direset" untuk anggota uji coba. | Apps Script |
+| Deploy server | **Versi 57** (26 Okt 2026, 06.19; keputusan atasan 1-ketuk: `Keputusan.gs` + Pantauan.gs + 1 baris doPost). Versi 56 (05.50; B4 alasan potongan per kejadian: `Kejadian.gs` + Code.gs / PenilaianCw.gs / NilaiAplikasi.gs). Versi 55 (24 Okt 2026, 21.12; Pantauan pengawas & admin: `Pantauan.gs` + `action=pantauan` dan tanda `pantauan: true` untuk pengawas/admin di Kode.gs). Versi 54 (20.36; Peringatan dini pembinaan: `Pembinaan.gs` + `action=pembinaan` dan tanda `pembinaan: true` untuk pengawas/admin di Kode.gs). Versi 53 (14.49): CEK FOTO TIDAK SESUAI −30. Versi 52 (14.10): perbaikan baris ABSENSI tanpa NRP ("Pos 12.04 …", "Patwal R4", "3 Pers Laka") tetap diperlakukan uji coba, dan INTEGRITAS HARIAN menulis "Uji coba – data sudah direset" untuk anggota uji coba. | Apps Script |
 | Aplikasi (GitHub Pages) | Commit `76fba4d`, cache service worker `cw-pagi-v39`. | GitHub |
 
 ## BELUM DIKERJAKAN / BELUM DIUJI
@@ -57,7 +57,9 @@ Tidak berisi kata sandi atau kode rahasia.
   - Setelah deploy: jalankan Hitung sekarang (atau tunggu hitungan terjadwal) agar NILAI APLIKASI berisi kejadian;
     cek di Nilai Saya satu anggota yang punya catatan.
 
-- [x] **Keputusan atasan 1-ketuk di tab Pantauan** (26 Okt 2026), kode selesai & diuji lokal, **BELUM DIDEPLOY / BELUM DI-PUSH**:
+- [x] **Keputusan atasan 1-ketuk di tab Pantauan** (26 Okt 2026): server **Versi 57** (06.19; `ujiPantauan` jalan tanpa error,
+  GET & POST `/exec` sehat) dan aplikasi cache `cw-pagi-v51` **tayang** (`main` = `fa618fd`).
+  - [ ] Cek dengan akun pengawas/admin sungguhan: satu keputusan tiap jenis, lalu lihat sel & catatan selnya di spreadsheet.
   - Mencurigakan: tombol ASLI / PALSU (⚠️) dan chip CEK FOTO di rincian kejadian. Bagian baru **Cek foto**: foto 3 hari
     terakhir yang belum dicek (maks 150, terbaru dulu) + chip CEK FOTO. Persetujuan: tombol SETUJU / TOLAK + daftar
     **HP baru menunggu izin** dengan tombol "Izinkan HP baru".
