@@ -913,6 +913,35 @@
   function dirtyCount() { return Object.keys(edits).length + Object.keys(noteEdits).length; }
   function pendingRows() { return data.rows.filter((r) => edits[r.row] === PENDING); }
 
+  // lembar ringkasan sebelum Simpan: tiap perubahan "nama: lama → baru"; mengganti isian yang sudah ada ditandai ⚠️
+  function konfirmasiSimpan() {
+    const label = (c) => !c ? 'kosong' : c === 'H' ? 'Hadir' : labelOf(c);
+    const baris = data.rows.filter((r) => edits[r.row] !== undefined).map((r) => {
+      const ganti = !!r.status;
+      return '<li class="' + (ganti ? 'ks-ganti' : '') + '"><b>' + esc(r.no) + '. ' + esc(r.petugas) + '</b><br>' + esc(label(r.status)) + ' → <b>' +
+        esc(label(edits[r.row])) + '</b>' + (ganti ? ' <span class="badge far">⚠️ mengubah isian</span>' : '') +
+        (dariAplikasi(r) ? ' <span class="badge th">sudah lapor di aplikasi</span>' : '') + '</li>';
+    });
+    const nCat = Object.keys(noteEdits).length;
+    const nGanti = data.rows.filter((r) => edits[r.row] !== undefined && r.status).length;
+    return new Promise((selesai) => {
+      const el = document.createElement('div');
+      el.className = 'ios-sheet';
+      el.innerHTML = '<div class="card ios-card konfirmasi"><h2>Periksa sebelum menyimpan</h2>' +
+        '<p class="sub">' + esc(dateLabel()) + ' · ' + baris.length + ' status' + (nCat ? ' · ' + nCat + ' catatan' : '') + '</p>' +
+        (nGanti ? '<p class="need-msg">' + nGanti + ' baris mengubah isian yang sudah ada. Pastikan benar.</p>' : '') +
+        (baris.length ? '<ol class="ks-list">' + baris.join('') + '</ol>' : '') +
+        '<div class="actions"><button class="btn" data-k="batal">Periksa lagi</button><button class="btn primary" data-k="ya">Ya, simpan</button></div></div>';
+      document.body.appendChild(el);
+      el.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-k]');
+        if (e.target !== el && !b) return;
+        el.remove();
+        selesai(!!b && b.dataset.k === 'ya');
+      });
+    });
+  }
+
   async function saveData() {
     const pend = pendingRows();
     if (pend.length) {
@@ -925,6 +954,18 @@
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
+    // koreksi isian yang dilaporkan anggota sendiri: alasan wajib di catatan
+    const tanpaAlasan = data.rows.filter((r) => koreksi[r.row] && edits[r.row] !== undefined && noteOf(r).trim() === savedNote(r).trim());
+    if (tanpaAlasan.length) {
+      toast('Tulis alasan koreksi di catatan untuk ' + tanpaAlasan.map((r) => r.petugas).join(', '));
+      const el = document.querySelector('.person[data-row="' + tanpaAlasan[0].row + '"] input');
+      if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.focus(); }
+      return;
+    }
+    if (!dirtyCount()) return;
+    // ringkasan perubahan dulu: operator memeriksa sebelum benar-benar disimpan (cegah salah ketuk Hadir / Tidak)
+    const d1 = data;
+    if (!(await konfirmasiSimpan()) || data !== d1) return;
     const updates = Object.keys(edits).map((row) => ({ row: Number(row), code: edits[row] }));
     const notes = Object.keys(noteEdits).map((no) => ({ no, note: noteEdits[no] }));
     if (!updates.length && !notes.length) return;
@@ -940,6 +981,7 @@
     });
     Object.keys(kirimNotes).forEach((no) => { catLama[no] = d0.catatan[no]; d0.catatan[no] = kirimNotes[no]; });
     edits = {}; noteEdits = {}; showNeed = false;
+    Object.keys(koreksi).forEach((k) => delete koreksi[k]);
     render();
     toast('⟳ Menyimpan…');
     let out;
@@ -1010,6 +1052,7 @@
       mintaAdmin = false;
       edits = {};
       noteEdits = {};
+      Object.keys(koreksi).forEach((k) => delete koreksi[k]);
       showNeed = false;
       // data terbaru tiba saat anggota sedang mengetik: tampilan diperbarui nanti, keyboard tidak ditutup
       if (!sedangMengetik()) render();
@@ -1189,8 +1232,24 @@
     }).join('');
   }
 
+  // baris yang sudah dilaporkan anggota sendiri lewat aplikasi (Lapor Selesai / Tinggalkan Lokasi / tidak hadir, tanpa ⚠️)
+  // dikunci di Rekap Admin; mengubahnya lewat "Koreksi" + konfirmasi + catatan alasan wajib. ⚠️ Nihil tetap bisa diketuk.
+  const koreksi = {};
+  function dariAplikasi(r) {
+    const l = (data.lapor || {})[String(r.no)];
+    return !!(l && l.st && !l.diperiksa && r.status && (l.st === 'H' ? r.status === 'H' : !!l.tidak));
+  }
+  function terkunci(r) { return dariAplikasi(r) && !koreksi[r.row]; }
   function person(r) {
     const st = statusOf(r), k = kind(st), note = noteOf(r);
+    if (terkunci(r)) {
+      return '<div class="person kunci" data-row="' + r.row + '"><div class="line"><div class="info">' +
+        '<div class="name">' + esc(r.no) + '. ' + esc(r.petugas) + (r.jml > 1 ? ' · ' + r.jml + ' pers' : '') + '</div>' +
+        '<div class="loc">' + esc(r.lokasi) + (r.jam ? ' · ' + esc(r.jam) : '') + '</div>' + laporInfo(r) +
+        (note ? '<div class="loc">📝 ' + esc(note) + '</div>' : '') + '</div>' +
+        '<div class="kunci-ket"><span class="badge ' + (k === 'H' ? 'ok' : 'th') + '">🔒 ' + esc(k === 'H' ? 'Hadir' : labelOf(st)) + '</span>' +
+        '<button class="link muted-link" data-act="koreksi">Koreksi</button></div></div></div>';
+    }
     const dirty = edits[r.row] !== undefined || noteEdits[r.no] !== undefined;
     const showNote = k === 'T' || note || openNote[r.no];
     const chips = k === 'T'
@@ -1352,13 +1411,20 @@
     // Hadir tidak bolak-balik: ketuk Hadir pada baris yang sudah H tidak mengosongkannya (dulu H dari Lapor Selesai
     // ikut terhapus saat admin "mencentang" ulang). Mengganti H tetap bisa lewat Tidak + alasan.
     if (act === 'H') setStatus(r, 'H');
-    if (act === 'T') setStatus(r, kind(statusOf(r)) === 'T' ? '' : PENDING);
+    // Tidak juga tidak bolak-balik: ketuk Tidak pada baris yang sudah tidak hadir tidak mengosongkannya
+    if (act === 'T' && kind(statusOf(r)) !== 'T') setStatus(r, PENDING);
+    if (act === 'koreksi') {
+      if (!confirm(r.petugas + ' sudah melapor sendiri lewat aplikasi (' + (kind(r.status) === 'H' ? 'Hadir' : labelOf(r.status)) +
+        ').\n\nUbah isian ini? Alasan koreksi wajib ditulis di catatan.')) return;
+      koreksi[r.row] = true;
+      openNote[r.no] = true;
+    }
     if (act === 'code') setStatus(r, el.dataset.v);
     if (act === 'addNote') openNote[r.no] = true;
     const y = window.scrollY;
     render();
     window.scrollTo(0, y);
-    if (act === 'addNote') {
+    if (act === 'addNote' || act === 'koreksi') {
       const i = document.querySelector('.person[data-row="' + r.row + '"] input');
       if (i) i.focus();
     }

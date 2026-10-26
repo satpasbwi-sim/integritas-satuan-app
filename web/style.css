@@ -425,3 +425,13 @@ main, .card, .person .info, .rk-nama, .skor-ket, .who > div { min-width: 0; }
   .rk-nama b { white-space: normal; overflow-wrap: anywhere; }
   .who { flex-wrap: wrap; }
 }
+/* Rekap Admin: baris yang sudah lapor lewat aplikasi dikunci; ringkasan sebelum Simpan */
+.person.kunci .info { opacity: .85; }
+.kunci-ket { display: grid; justify-items: end; gap: 4px; flex: none; }
+.kunci-ket .link { font-size: .75rem; padding: 0; }
+.konfirmasi { max-height: 85vh; overflow: auto; }
+.ks-list { margin: 8px 0 12px; padding-left: 22px; font-size: .85rem; line-height: 1.5; }
+.ks-list li { margin-bottom: 6px; }
+.ks-list li.ks-ganti { color: var(--th); }
+.konfirmasi .actions { display: flex; gap: 8px; }
+.konfirmasi .actions .btn { flex: 1; }
