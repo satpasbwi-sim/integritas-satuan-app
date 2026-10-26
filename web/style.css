@@ -391,6 +391,15 @@ h2.t { margin: 0 0 4px; font-size: 1.05rem; }
 .kej-u.u-tepat, .kej-u.u-durasi, .kej-u.u-lengkap { background: var(--warn-bg); color: var(--warn); border-color: transparent; }
 .kej-u.u-hadir, .kej-u.u-ceklok, .kej-u.u-lokasi { background: var(--th-bg); color: var(--th); border-color: transparent; }
 .kej-semua { margin-top: 6px; }
+.btn.teladan-btn { width: 100%; margin-top: 12px; background: #fff3c4; border-color: #f0c94a; color: #8a6100; }
+.kartu-teladan { max-height: calc(100vh - 32px); overflow-y: auto; }
+.kartu-teladan .kt-img { display: block; width: 100%; max-width: 360px; margin: 8px auto; border-radius: 12px; }
+.kartu-teladan textarea { margin-top: 8px; }
+.kt-aksi .btn { flex: 1; }
+.rw-i { padding: 7px 0; border-top: 1px dashed var(--line); font-size: .85rem; }
+.kej-tgl + .rw-i { border-top: 0; }
+.rw-i .chips-hari { margin-top: 4px; }
+.rw-i .lv { padding: 3px 8px; font-size: .72rem; }
 .salam { margin: 0 0 2px; font-size: .78rem; font-weight: 700; color: var(--muted); letter-spacing: .02em; }
 
 /* ---------- Form kode admin ---------- */

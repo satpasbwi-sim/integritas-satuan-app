@@ -27,11 +27,44 @@
 
   function load(k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
   function store(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* abaikan */ } }
-  // ID acak HP ini (server Perangkat.gs): satu NRP hanya bisa dipakai di satu HP
-  const HP_ID = load('cw_hp') || (function () {
-    const id = 'hp-' + (window.crypto && crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
-    store('cw_hp', id);
-    return id;
+  // ID acak HP ini (server Perangkat.gs): satu NRP hanya bisa dipakai di satu HP.
+  // Disimpan rangkap tiga (localStorage, IndexedDB, Cache Storage 'cw-id') agar pulih bila salah satunya dibersihkan;
+  // ID baru hanya dibuat bila ketiganya kosong. "Hapus data situs" menghapus ketiganya sekaligus, jadi tetap perlu
+  // izin HP baru dari operator. navigator.storage.persist() meminta browser tidak menghapus data saat memori penuh.
+  let HP_ID = load('cw_hp');
+  const HP_DB = 'cw-id', HP_KUNCI = './__cw_hp';
+  function idbHp(tulis) {
+    return new Promise((selesai) => {
+      try {
+        const req = indexedDB.open(HP_DB, 1);
+        req.onupgradeneeded = () => req.result.createObjectStore('kv');
+        req.onerror = () => selesai('');
+        req.onsuccess = () => {
+          try {
+            const tx = req.result.transaction('kv', tulis ? 'readwrite' : 'readonly'), st = tx.objectStore('kv');
+            if (tulis) { st.put(tulis, 'hp'); tx.oncomplete = () => selesai(tulis); tx.onerror = () => selesai(''); }
+            else { const g = st.get('hp'); g.onsuccess = () => selesai(g.result || ''); g.onerror = () => selesai(''); }
+          } catch (e) { selesai(''); }
+        };
+      } catch (e) { selesai(''); }
+    });
+  }
+  async function cacheHp(tulis) {
+    try {
+      const c = await caches.open(HP_DB);
+      if (tulis) { await c.put(HP_KUNCI, new Response(tulis)); return tulis; }
+      const r = await c.match(HP_KUNCI);
+      return r ? (await r.text()) : '';
+    } catch (e) { return ''; }
+  }
+  const sahHp = (x) => /^hp-[\w-]{6,60}$/.test(String(x || '')) ? String(x) : '';
+  const hpSiap = (async function () {
+    if (!sahHp(HP_ID)) HP_ID = sahHp(await idbHp()) || sahHp(await cacheHp()) ||
+      'hp-' + (window.crypto && crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
+    store('cw_hp', HP_ID);
+    await Promise.all([idbHp(HP_ID), cacheHp(HP_ID)]);
+    try { if (navigator.storage && navigator.storage.persist) await navigator.storage.persist(); } catch (e) { /* tidak didukung */ }
+    return HP_ID;
   })();
 
   // data terakhir disimpan di HP agar Lapor CW langsung tampil saat dibuka, lalu diperbarui dari server
@@ -242,7 +275,36 @@
         '(mingguan: Senin pagi sesudah minggu berakhir; bulanan: sesudah akhir bulan).</p>';
     }
     v.innerHTML = '<section class="card nilai"><div class="who"><div><b>Nilai Saya</b><div class="loc">' +
-      esc((nilai && nilai.nama) || data.nama || '') + '</div></div></div>' + seg + isi + muatUlang + '</section>';
+      esc((nilai && nilai.nama) || data.nama || '') + '</div></div></div>' + seg + isi +
+      (nilai && !nilai.error ? riwayatHtml(nilai.riwayat) : '') + muatUlang + '</section>';
+  }
+
+  // Riwayat 7 hari terakhir (server NilaiAplikasi.gs riwayatSaya_): jam lapor/ceklok, status lokasi ⚠️ dan CEK FOTO,
+  // terlihat sebelum rekap nilai keluar. Alasan ⚠️ tidak dikirim server, hanya statusnya.
+  const TAHAP_RIWAYAT = { DATANG: 'Lapor Datang', H: 'Lapor Selesai', TINGGAL: 'Tinggalkan Lokasi', N: 'Lapor (Nihil)',
+    MASUK: 'Ceklok Masuk', PULANG: 'Ceklok Pulang', KELUAR: 'Tinggalkan Kantor' };
+  const LOKASI_RIWAYAT = { ok: ['Lokasi ✓', 'ok'], asli: ['Lokasi ✓ diverifikasi', 'ok'], diperiksa: ['⚠️ Lokasi diperiksa', 'warn'], palsu: ['✕ Lokasi PALSU', 'bad'] };
+  function riwayatHtml(rw) {
+    if (!rw || !Array.isArray(rw.baris)) return '';   // server lama: bagian ini tidak ditampilkan
+    if (!rw.baris.length) return '<h3>Riwayat ' + (rw.hari || 7) + ' hari terakhir</h3><p class="sub">Belum ada laporan / ceklok tercatat.</p>';
+    let html = '<h3>Riwayat ' + (rw.hari || 7) + ' hari terakhir</h3><div class="kej">', tgl = '';
+    rw.baris.forEach((x) => {
+      if (x.tgl !== tgl) {
+        tgl = x.tgl;
+        const d = new Date(tgl + 'T12:00:00');
+        html += '<div class="kej-tgl">' + (isNaN(d) ? '' : HARI[d.getDay()] + ', ') + esc(tglPendek(tgl)) + '</div>';
+      }
+      const tahap = TAHAP_RIWAYAT[x.status] || (x.sumber === 'CEKLOK' ? 'Ceklok tidak masuk (' + x.status + ')' : 'Lapor tidak hadir (' + x.status + ')');
+      const lok = x.status === 'TIDAK' || /^[A-Z]{1,2}$/.test(x.status) && !TAHAP_RIWAYAT[x.status] ? null : LOKASI_RIWAYAT[x.lokasi];
+      const foto = !x.foto ? '' : x.foto === 'BELUM' ? '<span class="lv na">Foto belum dicek</span>'
+        : x.foto === 'SESUAI' ? '<span class="lv ok">Foto ✓ sesuai</span>' : '<span class="lv bad">Foto: ' + esc((LABEL_CEK_FOTO[x.foto] || x.foto).toLowerCase()) + '</span>';
+      html += '<div class="rw-i"><div><b>' + esc(x.jam) + '</b> ' + esc(tahap) +
+        (x.selisih ? ' <span class="badge far">' + (x.status === 'MASUK' ? 'terlambat ' : 'pulang cepat ') + x.selisih + ' mnt</span>' : '') +
+        (x.tunda ? ' <span class="badge k">tertunda ' + x.tunda + ' mnt</span>' : '') + '</div>' +
+        (lok || foto ? '<div class="chips-hari">' + (lok ? '<span class="lv ' + lok[1] + '">' + lok[0] + '</span>' : '') + foto + '</div>' : '') + '</div>';
+    });
+    return html + '</div><p class="foot-nilai">⚠️ diperiksa = lokasi sedang menunggu keputusan atasan. ' +
+      'Foto yang dinilai tidak sesuai mengurangi nilai Kejujuran lokasi & foto.</p>';
   }
 
   // ---------- Rekap Integritas: rekap nilai semua anggota untuk pengawas (NRP_PENGAWAS di server) ----------
@@ -380,10 +442,16 @@
       const sebaran = '<div class="sebaran">' + Object.keys(hit).filter((p) => hit[p]).map((p) =>
         '<i class="' + kls[p] + '" style="flex:' + hit[p] + '"></i>').join('') + '</div><div class="sebaran-ket">' +
         Object.keys(hit).map((p) => '<span><i class="' + kls[p] + '"></i>' + p + ' <b>' + hit[p] + '</b></span>').join('') + '</div>';
+      // ★ Teladan (Urutan.gs: hanya rekap mingguan / bulanan) → kartu gambar & teks WhatsApp apresiasi
+      const teladan = baris.filter((r) => r.detail && r.detail.urut && r.detail.urut.teladan);
+      rekapTeladan = { list: teladan, judul, periode: G.periode, jenis: rekapJenis };
+      const tombolTeladan = rekapJenis === 'harian' ? '' : teladan.length
+        ? '<button class="btn teladan-btn" data-a="kartuTeladan">★ Kartu & teks WA Teladan (' + teladan.length + ')</button>'
+        : '<p class="foot-nilai">Belum ada ★ Teladan pada periode ini.</p>';
       isi = seg2 + seg3 + '<div class="skor-box"><div class="ring ' + warnaNilai(rata) + '" style="--p:' + rata + '"><b>' +
         String(rata).replace('.', ',') + '</b><small>rata-rata</small></div><div class="skor-ket"><b>' + esc(judul) + '</b>' +
         '<div class="sub">' + esc(G.periode) + (G.sementara ? ' <span class="badge far">sementara</span>' : '') + '</div>' +
-        '<div class="sub">' + baris.length + ' dinilai · diperbarui ' + esc(G.diperbarui) + '</div></div></div>' + sebaran +
+        '<div class="sub">' + baris.length + ' dinilai · diperbarui ' + esc(G.diperbarui) + '</div></div></div>' + sebaran + tombolTeladan +
         '<input class="note-in rk-cari" id="rekapCari" placeholder="Cari nama…" value="' + esc(rekapCari) + '">' +
         '<p class="foot-nilai">Urut peringkat; skor sama diurutkan dari hari sempurna, hari beruntun, lalu kedatangan lebih awal. ★ = Teladan. ' +
         'Ketuk nama untuk melihat rincian.</p>' +
@@ -393,6 +461,85 @@
     }
     v.innerHTML = '<section class="card nilai"><div class="who"><div><b>Rekap Integritas</b><div class="loc">' +
       esc(data.nama || '') + (data.role === 'admin' ? ' · admin' : ' · pengawas') + '</div></div></div>' + seg + isi + kaki + '</section>';
+  }
+
+  // ---------- Apresiasi ★ Teladan: kartu gambar (canvas) + teks WhatsApp, penyeimbang positif tab Pembinaan ----------
+  let rekapTeladan = null;
+  function teksTeladan(t) {
+    return ['*★ APRESIASI TELADAN INTEGRITAS*', '*SATLANTAS POLRESTA BANYUWANGI*', t.judul + ' · ' + t.periode, '',
+      'Selamat kepada personel yang meraih nilai sempurna dengan seluruh hari dinilai sempurna:']
+      .concat(t.list.map((r, i) => (i + 1) + '. ' + r.nama + (r.detail && r.detail.ket ? ' (' + r.detail.ket + ')' : '')))
+      .concat(['', 'Terima kasih atas disiplin dan integritasnya. Pertahankan! 👏']).join('\n');
+  }
+  function gambarLogo() {
+    return new Promise((selesai) => { const i = new Image(); i.onload = () => selesai(i); i.onerror = () => selesai(null); i.src = 'logo.png'; });
+  }
+  // kartu 1080×1350 (rasio 4:5, pas untuk WhatsApp); nama lebih dari 12 diringkas "+n lainnya"
+  async function kartuTeladan(t) {
+    try { await document.fonts.load('800 60px "Plus Jakarta Sans"'); } catch (e) { /* pakai font cadangan */ }
+    const W = 1080, H = 1350, c = document.createElement('canvas');
+    c.width = W; c.height = H;
+    const g = c.getContext('2d'), F = '"Plus Jakarta Sans", system-ui, sans-serif';
+    const bg = g.createLinearGradient(0, 0, W, H);
+    bg.addColorStop(0, '#26508a'); bg.addColorStop(0.55, '#0f2341'); bg.addColorStop(1, '#0a1830');
+    g.fillStyle = bg; g.fillRect(0, 0, W, H);
+    g.strokeStyle = '#f2b632'; g.lineWidth = 10; g.strokeRect(36, 36, W - 72, H - 72);
+    const logo = await gambarLogo();
+    if (logo) g.drawImage(logo, W / 2 - 50, 80, 100, 100 * logo.height / logo.width);
+    g.textAlign = 'center'; g.fillStyle = '#f2b632';
+    g.font = '800 120px ' + F; g.fillText('★', W / 2, 330);
+    g.font = '800 64px ' + F; g.fillText('TELADAN INTEGRITAS', W / 2, 420);
+    g.fillStyle = '#c4d2e8'; g.font = '600 34px ' + F;
+    g.fillText(t.judul, W / 2, 478, W - 160);
+    g.fillText(t.periode, W / 2, 526, W - 160);
+    const tampil = t.list.slice(0, 12), sisa = t.list.length - tampil.length;
+    const tinggi = tampil.length > 8 ? 52 : 64;
+    g.fillStyle = '#ffffff'; g.font = '700 ' + (tinggi - 18) + 'px ' + F;
+    tampil.forEach((r, i) => g.fillText(r.nama, W / 2, 630 + i * tinggi, W - 200));
+    if (sisa > 0) { g.fillStyle = '#c4d2e8'; g.font = '600 34px ' + F; g.fillText('+' + sisa + ' lainnya', W / 2, 630 + tampil.length * tinggi); }
+    g.fillStyle = '#f2b632'; g.font = '700 34px ' + F;
+    g.fillText('Terima kasih atas disiplin & integritasnya', W / 2, H - 150, W - 160);
+    g.fillStyle = '#c4d2e8'; g.font = '600 30px ' + F;
+    g.fillText('Satpas Polresta Banyuwangi', W / 2, H - 90);
+    return new Promise((selesai) => c.toBlob(selesai, 'image/png'));
+  }
+  async function bukaKartuTeladan() {
+    const t = rekapTeladan;
+    if (!t || !t.list.length) return;
+    const teks = teksTeladan(t);
+    const el = document.createElement('div');
+    el.className = 'ios-sheet';
+    el.innerHTML = '<div class="card ios-card kartu-teladan"><h2>★ Apresiasi Teladan</h2><p class="sub">Membuat kartu…</p>' +
+      '<div class="actions kt-aksi"><button class="btn" data-k="tutup">Tutup</button></div></div>';
+    document.body.appendChild(el);
+    const tutup = () => { el.remove(); if (url) URL.revokeObjectURL(url); };
+    let url = '';
+    el.addEventListener('click', async (e) => {
+      if (e.target === el) return tutup();
+      const b = e.target.closest('[data-k]');
+      if (!b) return;
+      if (b.dataset.k === 'tutup') return tutup();
+      if (b.dataset.k === 'salin') {
+        try { await navigator.clipboard.writeText(teks); toast('✓ Teks disalin'); } catch (x) { toast('Tidak bisa menyalin otomatis'); }
+      }
+      if (b.dataset.k === 'bagikan') {
+        const file = new File([blob], 'teladan.png', { type: 'image/png' });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          try { await navigator.share({ files: [file], text: teks }); } catch (x) { /* dibatalkan */ }
+        } else {
+          const a = document.createElement('a'); a.href = url; a.download = 'teladan.png'; a.click();
+          toast('Gambar diunduh — kirim lewat WhatsApp');
+        }
+      }
+    });
+    const blob = await kartuTeladan(t);
+    if (!el.isConnected) return;
+    url = URL.createObjectURL(blob);
+    el.querySelector('.kartu-teladan').innerHTML = '<h2>★ Apresiasi Teladan</h2><img class="kt-img" src="' + url + '" alt="Kartu Teladan">' +
+      '<textarea readonly rows="6">' + esc(teks) + '</textarea>' +
+      '<div class="actions kt-aksi"><button class="btn primary" data-k="bagikan">Bagikan gambar</button>' +
+      '<a class="btn wa-btn" target="_blank" rel="noopener" href="https://wa.me/?text=' + encodeURIComponent(teks) + '">Kirim teks ke WhatsApp</a></div>' +
+      '<div class="actions kt-aksi"><button class="btn" data-k="salin">Salin teks</button><button class="btn" data-k="tutup">Tutup</button></div>';
   }
 
   // ---------- Pembinaan: peringatan dini untuk pengawas / admin (server Pembinaan.gs, tanda data.pembinaan) ----------
@@ -2010,6 +2157,7 @@
     if (b.dataset.g) { rekapGrup = b.dataset.g; store('cw_rkg', rekapGrup); return renderRekapInt(); }
     if (b.dataset.s) { rekapSub = b.dataset.s; store('cw_rks', rekapSub); return renderRekapInt(); }
     if (b.dataset.a === 'muatRekap') return muatRekap();
+    if (b.dataset.a === 'kartuTeladan') return bukaKartuTeladan();
     if (b.dataset.a === 'keluar') return logout();
     if (b.dataset.k) { rekapBuka[b.dataset.k] = !rekapBuka[b.dataset.k]; return renderRekapInt(); }
   });
@@ -2413,7 +2561,8 @@
       render();
     }
     if (!c || !c.pengawas) ambilLokasi();
-    reload().then(() => kirimAntre());
+    // ID HP dipulihkan dulu (IndexedDB / Cache Storage) sebelum permintaan pertama ke server
+    hpSiap.then(() => reload()).then(() => kirimAntre());
   }
 
   if (pin) mulai(); else showLogin();

@@ -70,6 +70,16 @@ Tidak berisi kata sandi atau kode rahasia.
   - ASLI/PALSU Lapor CW langsung menyinkronkan ABSENSI N ↔ H (`verifikasiCw_`).
   - Aplikasi `web/` cache `cw-pagi-v51`. Server lama: bagian Cek foto & tombol tidak tampil (aman dipasang lebih dulu).
 
+- [x] **HP_ID rangkap tiga + Riwayat 7 hari + Kartu Teladan** (26 Okt 2026), diuji lokal, **BELUM DIDEPLOY / BELUM DI-PUSH**:
+  - HP_ID disimpan di localStorage + IndexedDB `cw-id` + Cache Storage `cw-id` (sw.js tidak menghapusnya), dipulihkan
+    sebelum permintaan pertama; `navigator.storage.persist()`. Tidak menolong "Hapus data situs" (ketiganya ikut terhapus).
+  - Nilai Saya: "Riwayat 7 hari terakhir" (jam, tahap, terlambat/pulang cepat, tertunda, status lokasi ⚠️ tanpa alasan,
+    status CEK FOTO). Server: `riwayatSaya_` di `NilaiAplikasi.gs` (salinan di `catatan-lanjutan/server/`), field `riwayat`
+    di `action=nilai`. Cadangan: `apps-script/cadangan-sebelum-riwayat/`.
+  - Rekap Integritas (mingguan/bulanan): tombol "★ Kartu & teks WA Teladan" → gambar PNG 1080×1350 (bagikan / unduh) +
+    teks WhatsApp. Hanya aplikasi, tanpa perubahan server.
+  - Aplikasi `web/` cache `cw-pagi-v52`.
+
 ### Wajib dicek hari pertama (26/10/2026)
 - [ ] Satu NRP resmi: Lapor/Ceklok mengikuti aturan resmi (ditolak di luar jam/radius/tanpa foto).
 - [ ] Setelah reset ±19.00, data NRP resmi hari itu masih ada di LOG LAPOR / LOG CEKLOK.

@@ -1,7 +1,7 @@
 // Service worker: membuat aplikasi bisa dipasang di HP.
 // Selalu ambil versi terbaru dari jaringan (tanpa cache HTTP browser); cache hanya cadangan saat offline.
 // Permintaan ke Apps Script (domain lain) tidak disentuh.
-const CACHE = 'cw-pagi-v51';
+const CACHE = 'cw-pagi-v52';
 const SHELL = ['./', 'index.html', 'app.js', 'style.css', 'config.js', 'manifest.json', 'logo.png', 'icon-192.png'];
 
 self.addEventListener('install', (e) => {
@@ -10,7 +10,8 @@ self.addEventListener('install', (e) => {
 
 self.addEventListener('activate', (e) => {
   e.waitUntil(caches.keys()
-    .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+    // 'cw-id' = cadangan ID HP (app.js), tidak ikut dihapus saat ganti versi
+    .then((keys) => Promise.all(keys.filter((k) => k !== CACHE && k !== 'cw-id').map((k) => caches.delete(k))))
     .then(() => self.clients.claim()));
 });
 
