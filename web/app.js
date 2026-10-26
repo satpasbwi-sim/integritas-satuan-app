@@ -2300,6 +2300,14 @@
       buangAntre(body.idKirim);
       if (out.error) throw new Error(out.error);
       if (out.jam === undefined) throw new Error('Code.gs belum diperbarui untuk Ceklok Satpas');
+      // hasil langsung dicatat di data HP: kartu selesai tampil tanpa menunggu muat ulang seluruh data
+      const hi = data.ceklok.hariIni = Object.assign({}, data.ceklok.hariIni);
+      if (ulangCk && (tahap === 'masuk' || tahap === 'tidak')) ['masuk', 'pulang', 'keluar', 'tidak'].forEach((k) => delete hi[k]);
+      const item = { jam: out.jam, dist: out.dist, selisih: out.selisih || 0, peringatan: out.diperiksa ? '⚠️' : '' };
+      if (tahap === 'keluar') item.ket = ck.jenis + ': ' + ck.note.trim();
+      if (tahap === 'tidak') item.kode = body.st;
+      hi[tahap] = item;
+      if (data.day === data.today) simpanCache(data);
       kosongkan();
       if (tahap === 'masuk' || tahap === 'tidak') ulangCk = false;
       toast(out.diperiksa ? 'Ceklok tercatat pukul ' + out.jam + ', lokasi perlu diverifikasi sistem'
@@ -2308,8 +2316,9 @@
         : tahap === 'keluar' ? '✓ Tercatat meninggalkan kantor pukul ' + out.jam + ' — ceklok hari ini selesai'
         : '✓ Laporan tidak masuk terkirim');
       sending = false;
-      await reload(data.today);
+      renderCeklok();
       window.scrollTo(0, 0);
+      reload(data.today);   // data lengkap diperbarui di belakang, tidak ditunggu
     } catch (err) {
       sending = false;
       renderCeklok();
