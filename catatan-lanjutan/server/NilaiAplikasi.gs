@@ -223,3 +223,12 @@ function rekapIntegritas_() {
   });
   return out;
 }
+
+/** Jalankan dari editor: riwayat anggota pertama di sheet ANGGOTA (hanya membaca), jumlah baris per status di log. */
+function ujiRiwayat() {
+  const ang = SpreadsheetApp.getActive().getSheetByName(SHEET_ANGGOTA).getRange(2, 1, 1, 2).getDisplayValues()[0];
+  const rw = riwayatSaya_({ petugas: ang[0], nrp: ang[1] });
+  const hitung = {};
+  rw.baris.forEach(function (x) { const k = x.sumber + ' ' + x.status + ' · lokasi ' + x.lokasi + ' · foto ' + (x.foto || '-'); hitung[k] = (hitung[k] || 0) + 1; });
+  Logger.log(rw.baris.length + ' baris dalam ' + rw.hari + ' hari: ' + JSON.stringify(hitung));
+}
