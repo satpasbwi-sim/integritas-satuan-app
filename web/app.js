@@ -1930,17 +1930,22 @@
     if (r && r.lat != null && ['tunggu', 'selesai', 'tinggal'].includes(fase(r))) {
       return { jenis: 'cw', d: jarakM(draft, r), maks: radius() };
     }
-    if (data.ceklok && !data.ceklok.bebasLokasi && ['pulang', 'keluar'].includes(ckFase())) {
+    // sesudah jam pulang dinas tidak dipantau lagi (lupa Ceklok Pulang lalu pulang bukan pelanggaran lokasi)
+    if (data.ceklok && !data.ceklok.bebasLokasi && ['pulang', 'keluar'].includes(ckFase()) && !lewatJamPulang()) {
       return { jenis: 'ceklok', d: jarakM(draft, data.ceklok), maks: data.ceklok.radius };
     }
     return null;
+  }
+  function lewatJamPulang() {
+    const c = data && data.ceklok, m = menitSekarang();
+    return !!(c && c.pulang != null && m != null && m >= c.pulang);
   }
   // masih wajib berada di titik (setelah Lapor Datang) / kantor (setelah Ceklok Masuk): GPS harus tetap dipantau
   function wajibDipantau() {
     if (!data) return false;
     const r = myRow();
     if (r && ['tunggu', 'selesai', 'tinggal'].includes(fase(r))) return true;
-    return !!(data.ceklok && !data.ceklok.bebasLokasi && ['pulang', 'keluar'].includes(ckFase()));
+    return !!(data.ceklok && !data.ceklok.bebasLokasi && ['pulang', 'keluar'].includes(ckFase()) && !lewatJamPulang());
   }
   function pantauLuar() {
     const s = statusLuar();
@@ -2222,7 +2227,7 @@
         '<input class="note-in" id="ckLembur" maxlength="200" placeholder="Mis. pelayanan SIM membludak, ujian praktik susulan" value="' + esc(ck.lembur) + '"></div>' : '';
       body = info('✓ Masuk pukul ' + esc(h.masuk.jam) + (h.masuk.antre ? ' (belum terkirim)' : ''),
         c.pulang != null && cepat > 0 ? 'Jam pulang ' + jamTeks(c.pulang) + '. Ceklok Pulang sekarang tercatat <b>pulang cepat ' + cepat + ' menit</b>.'
-          : lembur ? 'Jam pulang ' + jamTeks(c.pulang) + '. Ceklok Pulang sekarang tercatat <b>lembur ' + durTeks(lembur) + '</b> (tidak mengurangi nilai). Isi alasan lembur. Batas pukul ' + jamTeks(batas) + '.'
+          : lembur ? 'Jam pulang ' + jamTeks(c.pulang) + '. Ceklok Pulang sekarang tercatat <b>lembur ' + durTeks(lembur) + '</b> (tidak mengurangi nilai; bonus lembur setelah disetujui atasan). Isi alasan lembur. Batas pukul ' + jamTeks(batas) + '.'
           : 'Silakan Ceklok Pulang' + (c.pulang != null ? ' (jam pulang ' + jamTeks(c.pulang) + ')' : '') + '. Bila lembur, Ceklok Pulang masih bisa sampai pukul ' + jamTeks(batas) + '.') +
         gpsStep + fotoStep + lemburStep + noteStep(false) + tombol('ckPulang', lembur ? '🏠 Ceklok Pulang (lembur)' : '🏠 Ceklok Pulang', cepat > 0 ? 'w' : 'h') +
         '<div class="switch"><button class="btn tinggal" data-a="ckModeKeluar">🚨 Ada Tugas/Kepentingan? Tinggalkan Kantor</button></div>';
@@ -2299,7 +2304,7 @@
       if (tahap === 'masuk' || tahap === 'tidak') ulangCk = false;
       toast(out.diperiksa ? 'Ceklok tercatat pukul ' + out.jam + ', lokasi perlu diverifikasi sistem'
         : tahap === 'masuk' ? '✓ Ceklok Masuk pukul ' + out.jam + (out.selisih ? ' — terlambat ' + out.selisih + ' menit' : '')
-        : tahap === 'pulang' ? '✓ Ceklok Pulang pukul ' + out.jam + (out.selisih ? ' — pulang cepat ' + out.selisih + ' menit' : out.lembur ? ' — lembur ' + durTeks(out.lembur) : '')
+        : tahap === 'pulang' ? '✓ Ceklok Pulang pukul ' + out.jam + (out.selisih ? ' — pulang cepat ' + out.selisih + ' menit' : out.lembur ? ' — lembur ' + durTeks(out.lembur) + (out.lemburTunggu ? ', menunggu persetujuan atasan' : '') : '')
         : tahap === 'keluar' ? '✓ Tercatat meninggalkan kantor pukul ' + out.jam + ' — ceklok hari ini selesai'
         : '✓ Laporan tidak masuk terkirim');
       sending = false;

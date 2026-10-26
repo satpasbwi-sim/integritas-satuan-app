@@ -335,7 +335,8 @@ function hitungPersetujuanPantau_(rows, hariIni, semua, out) {
       out.menunggu.push({ tgl: r.tgl, umur: selisihHariPantau_(r.tgl, hariIni), nama: r.nama, jenis: r.jenis,
         pengajuan: r.pengajuan, ket: r.ket, phl: r.kel === 'phl', ref: r.ref || null });
     }
-    if (r.tgl.slice(0, 7) !== bulan) return;
+    // lembur bukan pelanggaran: tidak dihitung di "sering mengajukan"
+    if (r.tgl.slice(0, 7) !== bulan || /^Lembur/.test(r.pengajuan)) return;
     const k = normNama_(r.nama);
     const h = hitung[k] = hitung[k] || { nama: r.nama, phl: r.kel === 'phl', jumlah: 0, setuju: 0, tolak: 0, menunggu: 0 };
     h.jumlah++;
