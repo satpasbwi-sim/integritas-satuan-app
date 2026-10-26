@@ -84,7 +84,7 @@ Tidak berisi kata sandi atau kode rahasia.
 
 - [x] **Pantauan & Rekap Admin: 1x simpan, tidak muncul lagi; hanya NRP resmi; Polri / PHL terpisah** (26 Okt 2026):
   server **Versi 59** (13.42; `ujiPantauan` jalan: Ceklok 24 anggota resmi, CW 11 baris). Aplikasi cache `cw-pagi-v53`
-  di branch `claude/pantauan-pengawas` — **belum di-push ke `main`** (perlu persetujuan pemilik).
+  **tayang** (`main` = `c45b23b`, 26 Okt 2026).
   - Rekap Admin: Simpan langsung diterapkan di layar & dikirim di belakang (tanpa memuat ulang seluruh data); gagal →
     perubahan dikembalikan. Hadir pada baris ⚠️ Nihil = VERIFIKASI ASLI saat itu juga (`asliDariRekap_` di Keputusan.gs,
     dipanggil doPost Code.gs), tanda "⚠️ lokasi diragukan" hilang (`diperiksa` hanya bila VERIFIKASI ≠ ASLI).
@@ -95,7 +95,7 @@ Tidak berisi kata sandi atau kode rahasia.
   - Hanya NRP_RESMI (`PANTAU_HANYA_RESMI = true` di Pantauan.gs; `false` = semua anggota). Tombol Polri / PHL Satpas
     (PHL = pangkat PHL di Data Satpas). Kunci cache `pantauan3|` (`hapusCachePantau_`).
   - Cadangan: `apps-script/cadangan-sebelum-pantauan-resmi/`. Salinan di `catatan-lanjutan/server/`.
-  - [ ] Cek dengan akun admin / pengawas sungguhan setelah `main` diperbarui.
+  - [ ] Cek dengan akun admin / pengawas sungguhan.
 
 ### Wajib dicek hari pertama (26/10/2026)
 - [ ] Satu NRP resmi: Lapor/Ceklok mengikuti aturan resmi (ditolak di luar jam/radius/tanpa foto).
