@@ -26,7 +26,7 @@ Tidak berisi kata sandi atau kode rahasia.
 | Bonus konsistensi | Mingguan/bulanan, ≥5 hari dinilai & ≥90% hari sempurna → +2 skor (maks 100, tidak bila ⚠️ PALSU). | Server |
 | Pengingat | Banner + notifikasi (bila diizinkan) untuk Lapor Datang/Selesai & Ceklok Masuk/Pulang; hanya saat aplikasi terbuka/di latar belakang. | Aplikasi |
 | Sheet PANDUAN | Ditulis ulang lewat `Panduan.gs` (fungsi `perbaruiPanduan`). Diperbarui 24 Okt 2026 malam untuk hari pertama resmi: jam Lapor Datang (06.15 / 06.30 / 07.15), PERSETUJUAN harian sebelum 15.00, verifikasi ⚠️ sebelum ±07.30 (bukti lemah otomatis ASLI), CEK FOTO, foto 3 hari, LUAR RADIUS, laporan tertunda ≤20 mnt, bagian mode resmi dibalik, tab Pembinaan, Ganti Bulan sebelum 06.00 (juga teks 🩺 Cek di Kode.gs; tanpa deploy baru). | Spreadsheet |
-| Deploy server | **Versi 59** (26 Okt 2026, 13.42; Pantauan hanya NRP resmi + Polri/PHL, simpan 1x Rekap Admin → ASLI: Pantauan.gs + Keputusan.gs + Code.gs). Versi 58 (07.37; riwayat 7 hari Nilai Saya: `riwayatSaya_` + `ujiRiwayat` di NilaiAplikasi.gs). Versi 57 (06.19; keputusan atasan 1-ketuk: `Keputusan.gs` + Pantauan.gs + 1 baris doPost). Versi 56 (05.50; B4 alasan potongan per kejadian: `Kejadian.gs` + Code.gs / PenilaianCw.gs / NilaiAplikasi.gs). Versi 55 (24 Okt 2026, 21.12; Pantauan pengawas & admin: `Pantauan.gs` + `action=pantauan` dan tanda `pantauan: true` untuk pengawas/admin di Kode.gs). Versi 54 (20.36; Peringatan dini pembinaan: `Pembinaan.gs` + `action=pembinaan` dan tanda `pembinaan: true` untuk pengawas/admin di Kode.gs). Versi 53 (14.49): CEK FOTO TIDAK SESUAI −30. Versi 52 (14.10): perbaikan baris ABSENSI tanpa NRP ("Pos 12.04 …", "Patwal R4", "3 Pers Laka") tetap diperlakukan uji coba, dan INTEGRITAS HARIAN menulis "Uji coba – data sudah direset" untuk anggota uji coba. | Apps Script |
+| Deploy server | **Versi 60** (26 Okt 2026, 14.38; Rekap Admin tidak bisa mengosongkan H hasil Lapor Selesai + `pulihkanAbsensiDariLog` di Keputusan.gs). Versi 59 (13.42; Pantauan hanya NRP resmi + Polri/PHL, simpan 1x Rekap Admin → ASLI: Pantauan.gs + Keputusan.gs + Code.gs). Versi 58 (07.37; riwayat 7 hari Nilai Saya: `riwayatSaya_` + `ujiRiwayat` di NilaiAplikasi.gs). Versi 57 (06.19; keputusan atasan 1-ketuk: `Keputusan.gs` + Pantauan.gs + 1 baris doPost). Versi 56 (05.50; B4 alasan potongan per kejadian: `Kejadian.gs` + Code.gs / PenilaianCw.gs / NilaiAplikasi.gs). Versi 55 (24 Okt 2026, 21.12; Pantauan pengawas & admin: `Pantauan.gs` + `action=pantauan` dan tanda `pantauan: true` untuk pengawas/admin di Kode.gs). Versi 54 (20.36; Peringatan dini pembinaan: `Pembinaan.gs` + `action=pembinaan` dan tanda `pembinaan: true` untuk pengawas/admin di Kode.gs). Versi 53 (14.49): CEK FOTO TIDAK SESUAI −30. Versi 52 (14.10): perbaikan baris ABSENSI tanpa NRP ("Pos 12.04 …", "Patwal R4", "3 Pers Laka") tetap diperlakukan uji coba, dan INTEGRITAS HARIAN menulis "Uji coba – data sudah direset" untuk anggota uji coba. | Apps Script |
 | Aplikasi (GitHub Pages) | Commit `76fba4d`, cache service worker `cw-pagi-v39`. | GitHub |
 
 ## BELUM DIKERJAKAN / BELUM DIUJI
@@ -96,6 +96,13 @@ Tidak berisi kata sandi atau kode rahasia.
     (PHL = pangkat PHL di Data Satpas). Kunci cache `pantauan3|` (`hapusCachePantau_`).
   - Cadangan: `apps-script/cadangan-sebelum-pantauan-resmi/`. Salinan di `catatan-lanjutan/server/`.
   - [ ] Cek dengan akun admin / pengawas sungguhan.
+
+- [x] **H dari Lapor Selesai hilang di ABSENSI** (26 Okt 2026): tombol Hadir di Rekap Admin dulu bolak-balik, sehingga ketuk
+  ulang mengosongkan H dan anggota tercatat "tidak lapor CW" (mis. NRP 87040654). Sel ABSENSI 26 dipulihkan dari LOG LAPOR
+  (no 3, 7, 26, 37, 39, 43 = H) lewat `pulihkanAbsensiDariLog`. Server **Versi 60**: doPost menolak mengosongkan H yang punya
+  Lapor Selesai / Tinggalkan Lokasi (`kodeLaporHari_`); aplikasi cache `cw-pagi-v54` **tayang** (`main` = `80a394e`):
+  Hadir tidak lagi bolak-balik. Cadangan: `apps-script/cadangan-sebelum-jaga-absensi/`.
+  - Bila terjadi lagi: jalankan `pulihkanAbsensiDariLog` (tanpa argumen = hari ini) dari editor, hanya mengisi sel kosong.
 
 ### Wajib dicek hari pertama (26/10/2026)
 - [ ] Satu NRP resmi: Lapor/Ceklok mengikuti aturan resmi (ditolak di luar jam/radius/tanpa foto).
