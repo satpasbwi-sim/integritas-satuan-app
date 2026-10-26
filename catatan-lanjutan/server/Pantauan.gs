@@ -31,7 +31,7 @@ function hapusCachePantau_() {
  * PHL = pangkat PHL di Data Satpas; nama dari Data Satpas dan sheet ANGGOTA (Lapor CW hanya punya nama petugas).
  */
 function pesertaPantau_(ss) {
-  const nrp = {}, nama = {};
+  const nrp = {}, nama = {}, anggota = [];   // anggota: {nama, nrp} dari sheet ANGGOTA (untuk baris pos / piket CW)
   const boleh = function (n) { return !!n && (!PANTAU_HANYA_RESMI || resmiNrp_(n)); };
   try {
     satpasDaftar_().forEach(function (a) {
@@ -48,9 +48,11 @@ function pesertaPantau_(ss) {
       if (!r[0] || !boleh(n)) return;
       if (!nrp[n]) nrp[n] = 'polri';
       if (!nama[normNama_(r[0])]) nama[normNama_(r[0])] = nrp[n];
+      anggota.push({ nama: String(r[0]).trim(), nrp: n });
     });
   }
   return {
+    anggota: anggota,
     kel: function (n, nm) {
       const id = normIdSatpas_(n);
       if (id && nrp[id]) return nrp[id];
@@ -155,9 +157,11 @@ function pantauCwHariIni_(ss, tz, now, peserta) {
   const mnt = nowMenit_(ss, now);
   const label = {};
   (d.codes || []).forEach(function (c) { label[c.code] = c.label; });
-  const baris = d.rows.filter(function (r) { return r.petugas && peserta.kel('', r.petugas); }).map(function (r) {
+  const pos = pantauBarisPos_(ss, d.rows, peserta);
+  const baris = d.rows.filter(function (r) { return (r.petugas && peserta.kel('', r.petugas)) || pos[String(r.no)]; }).map(function (r) {
     const L = d.lapor[String(r.no)] || {};
-    const b = { no: String(r.no), petugas: r.petugas, lokasi: r.lokasi, datang: L.datang ? L.datang.jam : '',
+    const p = !peserta.kel('', r.petugas) && pos[String(r.no)];   // baris pos / piket: nama anggota + nama baris
+    const b = { no: String(r.no), petugas: p ? p.join(', ') + (r.petugas ? ' · ' + r.petugas : '') : r.petugas, lokasi: r.lokasi, datang: L.datang ? L.datang.jam : '',
       selesai: L.selesai ? L.selesai.jam : L.tinggal ? L.tinggal.jam : '', telat: 0, kode: '', ket: '', phl: peserta.kel('', r.petugas) === 'phl' };
     if (L.datang) b.telat = Math.max(0, Math.floor(menitJamTitik_(L.datang.jam) - batas));
     // Nihil yang sudah ASLI (ABSENSI sudah H) tidak lagi "Diperiksa"
@@ -182,6 +186,28 @@ function pantauCwHariIni_(ss, tz, now, peserta) {
     return PANTAU_URUT_CW.indexOf(x.status) - PANTAU_URUT_CW.indexOf(y.status) || Number(x.no) - Number(y.no);
   });
   return { libur: '', batasDatang: ('0' + Math.floor(batas / 60)).slice(-2) + '.' + ('0' + batas % 60).slice(-2), ringkas: ringkas, baris: baris };
+}
+
+/**
+ * Anggota resmi yang namanya tidak tercantum di ABSENSI (pos jaga / Piket BM / Patwal / Laka) → no baris → [nama].
+ * Barisnya dicari dengan urutan yang sama seperti login (auth_ di Code.gs), jadi Lapor CW mereka di baris pos tetap
+ * tampil di Pantauan (juga saat belum lapor). Pengawas tidak dihitung. Hanya bila PANTAU_HANYA_RESMI (daftar kecil).
+ */
+function pantauBarisPos_(ss, rows, peserta) {
+  const out = {};
+  if (!PANTAU_HANYA_RESMI) return out;
+  const tercantum = {};
+  rows.forEach(function (r) { tercantum[normNama_(r.petugas)] = 1; });
+  peserta.anggota.forEach(function (a) {
+    if (tercantum[normNama_(a.nama)] || pengawas_(a.nrp)) return;
+    try {
+      let p = barisPiket_(ss, a.nama);
+      if (!p.no && !p.alasan) p = barisPatwal_(ss, a.nrp);
+      if (!p.no && !p.alasan) p = barisLaka_(ss, a.nrp, a.nama);
+      if (p.no) (out[String(p.no)] = out[String(p.no)] || []).push(a.nama);
+    } catch (e) { /* jadwal piket tidak terbaca: lewati orang ini */ }
+  });
+  return out;
 }
 
 // ---------- Mencurigakan ----------
