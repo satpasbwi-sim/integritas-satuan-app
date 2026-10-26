@@ -85,6 +85,60 @@ function asliDariRekap_(ss, shAbs, day, barisH, who) {
   return diisi;
 }
 
+/**
+ * Kode ABSENSI menurut LOG LAPOR untuk satu tanggal bulan ABSENSI: {no plotting: 'H' | 'N' | kode tidak hadir}.
+ * Sama dengan aturan lapor_: Lapor Selesai / Tinggalkan Lokasi = H, ⚠️ yang belum ASLI = N, H rekan satu pos tidak ditimpa.
+ */
+function kodeLaporHari_(ss, day) {
+  const log = ensureLog_(ss);
+  const out = {};
+  if (log.getLastRow() < 2) return out;
+  const tz = ss.getSpreadsheetTimeZone();
+  const akhir = ss.getSheetByName(SHEET_SETTING).getRange('C7').getValue();
+  const bulan = akhir instanceof Date ? Utilities.formatDate(akhir, tz, 'yyyy-MM') : '';
+  const ragu = {};
+  log.getRange(2, 1, log.getLastRow() - 1, 13).getValues().forEach(function (r) {
+    if (!(r[0] instanceof Date) || Number(r[1]) !== day) return;
+    if (bulan && Utilities.formatDate(r[0], tz, 'yyyy-MM') !== bulan) return;
+    const no = String(r[2]).trim(), st = String(r[5]).trim().toUpperCase();
+    if (String(r[11] || '').trim() && String(r[12] || '').trim().toUpperCase() !== 'ASLI') ragu[no] = true;
+    const k = st === 'H' || st === 'TINGGAL' ? 'H' : st === KODE_NIHIL ? KODE_NIHIL : st === 'DATANG' ? '' : st;
+    if (k && out[no] !== 'H') out[no] = k;
+  });
+  Object.keys(ragu).forEach(function (no) { if (out[no] === 'H') out[no] = KODE_NIHIL; });
+  return out;
+}
+
+/**
+ * Jalankan dari editor (bawaan: hari ini) atau pulihkanAbsensiDariLog(26): sel ABSENSI yang KOSONG diisi dari LOG LAPOR.
+ * Isian yang sudah ada tidak ditimpa. Dipakai bila H dari Lapor Selesai terhapus (mis. tombol Hadir terketuk dua kali).
+ */
+function pulihkanAbsensiDariLog(tanggal) {
+  const ss = SpreadsheetApp.getActive();
+  const tz = ss.getSpreadsheetTimeZone();
+  const day = Number(tanggal) || Number(Utilities.formatDate(new Date(), tz, 'd'));
+  const kode = kodeLaporHari_(ss, day);
+  const sh = ss.getSheetByName(SHEET_ABSENSI);
+  const n = LAST_ROW - FIRST_ROW + 1;
+  const no = sh.getRange(FIRST_ROW, 1, n, 1).getDisplayValues();
+  const sel = sh.getRange(FIRST_ROW, FIRST_DAY_COL + day - 1, n, 1).getValues();
+  const diisi = [];
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    no.forEach(function (v, i) {
+      const k = kode[String(v[0]).trim()];
+      if (!k || String(sel[i][0]).trim()) return;
+      sh.getRange(FIRST_ROW + i, FIRST_DAY_COL + day - 1).setValue(k);
+      diisi.push(v[0] + '=' + k);
+    });
+  } finally {
+    lock.releaseLock();
+  }
+  Logger.log('PULIHKAN ABSENSI tanggal ' + day + ': ' + diisi.length + ' sel diisi' + (diisi.length ? ' (' + diisi.join(', ') + ')' : ''));
+  return diisi;
+}
+
 /** Nomor baris yang WAKTU (kolom A, ms) dan NAMA (kolom D)-nya cocok dengan ref; 0 bila tidak ada. */
 function cariBarisRef_(sh, ref) {
   if (!sh || sh.getLastRow() < 2) return 0;

@@ -972,6 +972,11 @@
       toast(notes.length && out.notes === undefined ? 'Status tersimpan, tetapi catatan belum — Code.gs perlu diperbarui' : '✓ Laporan tersimpan');
       if (d0.day === d0.today) simpanCache(d0);
       if (out.asli) pantAt = 0;   // ⚠️ jadi ASLI: Pantauan dimuat ulang saat dibuka
+      // server menolak mengosongkan H hasil Lapor Selesai: tampilkan lagi isian sebenarnya
+      if (out.dijaga) {
+        toast(out.dijaga + ' baris tetap Hadir (sudah Lapor Selesai di aplikasi)');
+        if (d0 === data && !dirtyCount()) return reload(d0.day);
+      }
     }
     if (d0 === data && mode === 'rekap') render();
   }
@@ -1344,7 +1349,9 @@
     const r = rowByEl(el);
     if (act === 'toggle') closed[w] = !closed[w];
     if (act === 'allH') groups()[w].forEach((x) => { if (!statusOf(x)) setStatus(x, 'H'); });
-    if (act === 'H') setStatus(r, statusOf(r) === 'H' ? '' : 'H');
+    // Hadir tidak bolak-balik: ketuk Hadir pada baris yang sudah H tidak mengosongkannya (dulu H dari Lapor Selesai
+    // ikut terhapus saat admin "mencentang" ulang). Mengganti H tetap bisa lewat Tidak + alasan.
+    if (act === 'H') setStatus(r, 'H');
     if (act === 'T') setStatus(r, kind(statusOf(r)) === 'T' ? '' : PENDING);
     if (act === 'code') setStatus(r, el.dataset.v);
     if (act === 'addNote') openNote[r.no] = true;
