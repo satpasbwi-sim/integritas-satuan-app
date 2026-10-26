@@ -435,3 +435,8 @@ main, .card, .person .info, .rk-nama, .skor-ket, .who > div { min-width: 0; }
 .ks-list li.ks-ganti { color: var(--th); }
 .konfirmasi .actions { display: flex; gap: 8px; }
 .konfirmasi .actions .btn { flex: 1; }
+/* Pantauan → Hari ini: chip ringkasan bisa diketuk untuk menyaring; tanda terlambat tetap tampil setelah pulang / selesai */
+.chips-hari button.lv { font: inherit; font-size: .8rem; font-weight: 600; cursor: pointer; text-align: left; border: 1px solid transparent; }
+.chips-hari button.lv.pilih { box-shadow: 0 0 0 2px currentColor inset; }
+.pt-badges { display: inline-flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; flex: none; max-width: 55%; }
+.pt-saring .link { padding: 0; font-size: inherit; }

@@ -708,12 +708,29 @@
     tidak: ['Tidak hadir', 'far'], tinggal: ['Tinggalkan lokasi', 'ok'], selesai: ['Selesai', 'ok'], kode: ['', 'k']
   };
   const JENIS_POLA = { lokasi: '⚠️ Lokasi diragukan', luar: 'Di luar radius', foto: 'Cek foto', mirip: 'Posisi nyaris sama', tunda: 'Laporan tertunda' };
-  function chipsRingkas(isi) {
-    return '<div class="chips-hari">' + isi.map((x) => '<span class="lv ' + x[2] + '"><small>' + x[0] + '</small>' + x[1] + '</span>').join('') + '</div>';
-  }
-  function pantBaris(nama, sub, badge, kls, bawah) {
+  function pantBaris(nama, sub, badge, kls, bawah, badge2) {
     return '<div class="rk-row pt-row"><div class="rk-top"><div class="rk-nama"><b>' + nama + '</b><small>' + sub + '</small></div>' +
-      '<span class="badge ' + kls + '">' + esc(badge) + '</span></div>' + (bawah || '') + '</div>';
+      '<span class="pt-badges">' + (badge2 ? '<span class="badge far">' + esc(badge2) + '</span>' : '') +
+      '<span class="badge ' + kls + '">' + esc(badge) + '</span></span></div>' + (bawah || '') + '</div>';
+  }
+  // chip ringkasan Hari ini bisa diketuk untuk menyaring daftar (ketuk lagi = semua). Terlambat = siapa pun yang
+  // terlambat masuk / datang hari ini, termasuk yang sudah pulang / selesai (tanda "terlambat N mnt" di barisnya).
+  const pantSaring = { ck: '', cw: '' };
+  const SARING = {
+    ck: { hadir: (b) => !!b.masuk, terlambat: (b) => b.telat > 0, belum: (b) => b.status === 'belum', izin: (b) => /^izin/.test(b.status) },
+    cw: { datang: (b) => !!b.datang, selesai: (b) => b.status === 'selesai' || b.status === 'tinggal', terlambat: (b) => b.telat > 0,
+      belum: (b) => b.status === 'belum', tidak: (b) => b.status === 'tidak' }
+  };
+  function chipsSaring(bag, isi) {
+    return '<div class="chips-hari">' + isi.map((x) => '<button class="lv ' + x[2] + (pantSaring[bag] === x[3] ? ' pilih' : '') +
+      '" data-saring="' + bag + '|' + x[3] + '"><small>' + x[0] + '</small>' + x[1] + '</button>').join('') + '</div>';
+  }
+  function saringBaris(bag, baris, label) {
+    const f = pantSaring[bag] && SARING[bag][pantSaring[bag]];
+    if (!f) return { baris, ket: '' };
+    const hasil = baris.filter(f);
+    return { baris: hasil, ket: '<p class="foot-nilai pt-saring">Menampilkan ' + hasil.length + ' ' + esc(label[pantSaring[bag]]) +
+      ' · <button class="link" data-saring="' + bag + '|' + pantSaring[bag] + '">tampilkan semua</button></p>' };
   }
   // Polri / PHL: hanya bila server mengirim tanda phl (Pantauan.gs dengan PANTAU_HANYA_RESMI)
   function pisahKel() { return !!pant && pant.hanyaResmi !== undefined; }
@@ -743,16 +760,18 @@
     if (ck.error) isi += '<div class="gps out"><b>' + esc(ck.error) + '</b></div>';
     else if (ck.libur) isi += '<p class="sub">Hari ini libur Ceklok Satpas (' + esc(ck.libur) + ').</p>';
     else {
-      const baris = (ck.baris || []).filter(diKel), r = ringkasCk(baris);
-      isi += chipsRingkas([['Hadir', r.hadir + ' / ' + r.total, 'ok'], ['Terlambat', r.terlambat, r.terlambat ? 'warn' : 'na'],
-        ['Belum masuk', r.belum, r.belum ? 'bad' : 'na'], ['Izin', r.izin, 'na']]);
-      if (!baris.length) isi += '<p class="sub">Tidak ada anggota di kelompok ini.</p>';
-      isi += baris.map((b) => {
+      const semua = (ck.baris || []).filter(diKel), r = ringkasCk(semua);
+      isi += chipsSaring('ck', [['Hadir', r.hadir + ' / ' + r.total, 'ok', 'hadir'], ['Terlambat', r.terlambat, r.terlambat ? 'warn' : 'na', 'terlambat'],
+        ['Belum masuk', r.belum, r.belum ? 'bad' : 'na', 'belum'], ['Izin', r.izin, 'na', 'izin']]);
+      if (!semua.length) isi += '<p class="sub">Tidak ada anggota di kelompok ini.</p>';
+      const sr = saringBaris('ck', semua, { hadir: 'yang sudah masuk', terlambat: 'yang terlambat masuk', belum: 'yang belum masuk', izin: 'yang izin' });
+      isi += sr.ket + sr.baris.map((b) => {
         const s = STATUS_CK[b.status] || [b.status, 'k'];
         const sub = [b.pokja, b.masuk ? 'masuk ' + b.masuk + (b.telat ? ' (+' + b.telat + ' mnt)' : '') : '', b.pulang ? 'pulang ' + b.pulang : '', b.ket]
           .filter(Boolean).map(esc).join(' · ');
         return pantBaris(esc(b.nama) + (b.peringatan ? ' ⚠️' : '') + (b.ujiCoba ? ' <span class="badge k">uji coba</span>' : ''), sub,
-          s[0] + (b.status === 'terlambat' ? ' ' + b.telat + ' mnt' : b.status === 'izin' || b.status === 'izin_menunggu' ? ' ' + (b.ket || '') : ''), s[1]);
+          s[0] + (b.status === 'terlambat' ? ' ' + b.telat + ' mnt' : b.status === 'izin' || b.status === 'izin_menunggu' ? ' ' + (b.ket || '') : ''), s[1], '',
+          b.telat && b.status !== 'terlambat' ? 'terlambat ' + b.telat + ' mnt' : '');
       }).join('');
     }
     // CW Pagi hanya diikuti Polri: bagian ini tidak tampil di kelompok PHL bila kosong
@@ -764,14 +783,18 @@
       else if (cw.libur) isi += '<p class="sub">' + esc(cw.libur) + '.</p>';
       else {
         const r = ringkasCw(cwBaris);
-        isi += chipsRingkas([['Datang', r.datang + ' / ' + r.total, 'ok'], ['Selesai', r.selesai, 'na'], ['Terlambat', r.terlambat, r.terlambat ? 'warn' : 'na'],
-          ['Belum datang', r.belum, r.belum ? 'bad' : 'na'], ['Tidak hadir', r.tidak, 'na']]);
+        isi += chipsSaring('cw', [['Datang', r.datang + ' / ' + r.total, 'ok', 'datang'], ['Selesai', r.selesai, 'na', 'selesai'],
+          ['Terlambat', r.terlambat, r.terlambat ? 'warn' : 'na', 'terlambat'], ['Belum datang', r.belum, r.belum ? 'bad' : 'na', 'belum'],
+          ['Tidak hadir', r.tidak, 'na', 'tidak']]);
         if (cw.batasDatang) isi += '<p class="foot-nilai">Belum datang = lewat batas Lapor Datang ' + esc(cw.batasDatang) + ' tanpa laporan.</p>';
-        isi += cwBaris.map((b) => {
+        const sr = saringBaris('cw', cwBaris, { datang: 'yang sudah datang', selesai: 'yang sudah selesai', terlambat: 'yang terlambat datang',
+          belum: 'yang belum datang', tidak: 'yang tidak hadir' });
+        isi += sr.ket + sr.baris.map((b) => {
           const s = STATUS_CW[b.status] || [b.status, 'k'];
           const sub = [b.lokasi, b.datang ? 'datang ' + b.datang + (b.telat ? ' (+' + b.telat + ' mnt)' : '') : '', b.selesai ? 'selesai ' + b.selesai : '',
             b.status === 'tinggal' ? b.ket : ''].filter(Boolean).map(esc).join(' · ');
-          return pantBaris(esc(b.petugas), sub, (s[0] || b.ket) + (b.status === 'tidak' ? ' (' + b.kode + ')' : ''), b.telat && b.status === 'datang' ? 'far' : s[1]);
+          return pantBaris(esc(b.petugas), sub, (s[0] || b.ket) + (b.status === 'tidak' ? ' (' + b.kode + ')' : ''), s[1], '',
+            b.telat ? 'terlambat ' + b.telat + ' mnt' : '');
         }).join('');
       }
     }
@@ -892,12 +915,17 @@
       esc(data.nama || '') + (data.role === 'admin' ? ' · admin' : ' · pengawas') + '</div></div></div>' + isi + kaki + '</section>';
   }
   $('pantauanView').addEventListener('click', (e) => {
-    const b = e.target.closest('[data-p],[data-a],[data-j],[data-kel],.rk-row[data-k]');
+    const b = e.target.closest('[data-p],[data-a],[data-j],[data-kel],[data-saring],.rk-row[data-k]');
     if (!b || e.target.closest('a')) return;
     if (b.dataset.p) return kirimPutusan(b.dataset.p, b.dataset.r, b.dataset.v);
     if (b.dataset.a === 'muatPantauan') return muatPantauan();
     if (b.dataset.a === 'keluar') return logout();
     if (b.dataset.a === 'riwayatPola') { pantRiwayat = !pantRiwayat; return renderPantauan(); }
+    if (b.dataset.saring) {
+      const [bag, k] = b.dataset.saring.split('|');
+      pantSaring[bag] = pantSaring[bag] === k ? '' : k;
+      return renderPantauan();
+    }
     if (b.dataset.kel) { pantKel = b.dataset.kel; store('cw_pantau_kel', pantKel); return renderPantauan(); }
     if (b.dataset.j) { pantBagian = b.dataset.j; return renderPantauan(); }
     if (b.dataset.k) { pantBuka[b.dataset.k] = !pantBuka[b.dataset.k]; return renderPantauan(); }
