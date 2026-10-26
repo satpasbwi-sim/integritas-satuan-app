@@ -104,6 +104,11 @@ Tidak berisi kata sandi atau kode rahasia.
   Hadir tidak lagi bolak-balik. Cadangan: `apps-script/cadangan-sebelum-jaga-absensi/`.
   - Bila terjadi lagi: jalankan `pulihkanAbsensiDariLog` (tanpa argumen = hari ini) dari editor, hanya mengisi sel kosong.
 
+- [x] **Rekap Admin anti salah ketuk** (26 Okt 2026): cache `cw-pagi-v55` **tayang** (`main` = `0f367cd`). Baris yang sudah lapor
+  sendiri lewat aplikasi dikunci 🔒 (ubah lewat "Koreksi" + konfirmasi + alasan wajib di catatan); Hadir & Tidak tidak
+  bolak-balik; Simpan menampilkan ringkasan perubahan (lama → baru, ⚠️ bila mengubah isian) sebelum dikirim.
+  - [ ] Cek dengan HP operator sungguhan (buka ulang aplikasi agar v55 termuat).
+
 ### Wajib dicek hari pertama (26/10/2026)
 - [ ] Satu NRP resmi: Lapor/Ceklok mengikuti aturan resmi (ditolak di luar jam/radius/tanpa foto).
 - [ ] Setelah reset ±19.00, data NRP resmi hari itu masih ada di LOG LAPOR / LOG CEKLOK.
