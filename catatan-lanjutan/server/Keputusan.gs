@@ -51,11 +51,38 @@ function putuskan_(body, who) {
       try { verifikasiCw_(ss, tz, Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd'), Utilities.formatDate(new Date(), tz, 'dd/MM HH.mm')); }
       catch (e) { laporGagal_('Sinkron ABSENSI setelah keputusan', e); }
     }
-    CacheService.getScriptCache().removeAll(['pantauan2|semua', 'pantauan2|satpas']);
+    hapusCachePantau_();
     return { ok: true, nilai: nilai, jejak: jejak };
   } finally {
     lock.releaseLock();
   }
+}
+
+/**
+ * Rekap Admin (doPost): baris ABSENSI yang diganti Hadir = ⚠️ Lapor CW hari itu diputuskan ASLI sekarang juga,
+ * jadi tidak muncul lagi sebagai "belum diverifikasi" di Pantauan / Rekap Admin (sebelumnya baru dianggap ASLI ±07.30).
+ * Hanya VERIFIKASI yang masih kosong; isian atasan (mis. PALSU) tidak ditimpa. Lock dipegang doPost.
+ */
+function asliDariRekap_(ss, shAbs, day, barisH, who) {
+  const kolNo = shAbs.getRange(FIRST_ROW, 1, LAST_ROW - FIRST_ROW + 1, 1).getDisplayValues();
+  const no = {};
+  barisH.forEach(function (row) { const v = String(kolNo[row - FIRST_ROW][0] || '').trim(); if (v) no[v] = 1; });
+  const log = ensureLog_(ss);
+  if (log.getLastRow() < 2 || !Object.keys(no).length) return 0;
+  const tz = ss.getSpreadsheetTimeZone();
+  const akhir = ss.getSheetByName(SHEET_SETTING).getRange('C7').getValue();
+  const bulan = akhir instanceof Date ? Utilities.formatDate(akhir, tz, 'yyyy-MM') : '';
+  const jejak = 'Rekap Admin (Hadir) oleh ' + who.petugas + ', ' + Utilities.formatDate(new Date(), tz, 'dd/MM HH.mm');
+  let diisi = 0;
+  log.getRange(2, 1, log.getLastRow() - 1, 13).getValues().forEach(function (r, i) {
+    if (!(r[0] instanceof Date) || Number(r[1]) !== day || !no[String(r[2]).trim()]) return;
+    if (bulan && Utilities.formatDate(r[0], tz, 'yyyy-MM') !== bulan) return;
+    if (!String(r[11] || '').trim() || String(r[12] || '').trim()) return;
+    log.getRange(i + 2, 13).setValue('ASLI').setNote(jejak);
+    diisi++;
+  });
+  if (diisi) hapusCachePantau_();
+  return diisi;
 }
 
 /** Nomor baris yang WAKTU (kolom A, ms) dan NAMA (kolom D)-nya cocok dengan ref; 0 bila tidak ada. */

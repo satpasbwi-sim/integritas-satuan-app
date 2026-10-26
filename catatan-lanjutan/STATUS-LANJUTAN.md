@@ -26,7 +26,7 @@ Tidak berisi kata sandi atau kode rahasia.
 | Bonus konsistensi | Mingguan/bulanan, ≥5 hari dinilai & ≥90% hari sempurna → +2 skor (maks 100, tidak bila ⚠️ PALSU). | Server |
 | Pengingat | Banner + notifikasi (bila diizinkan) untuk Lapor Datang/Selesai & Ceklok Masuk/Pulang; hanya saat aplikasi terbuka/di latar belakang. | Aplikasi |
 | Sheet PANDUAN | Ditulis ulang lewat `Panduan.gs` (fungsi `perbaruiPanduan`). Diperbarui 24 Okt 2026 malam untuk hari pertama resmi: jam Lapor Datang (06.15 / 06.30 / 07.15), PERSETUJUAN harian sebelum 15.00, verifikasi ⚠️ sebelum ±07.30 (bukti lemah otomatis ASLI), CEK FOTO, foto 3 hari, LUAR RADIUS, laporan tertunda ≤20 mnt, bagian mode resmi dibalik, tab Pembinaan, Ganti Bulan sebelum 06.00 (juga teks 🩺 Cek di Kode.gs; tanpa deploy baru). | Spreadsheet |
-| Deploy server | **Versi 58** (26 Okt 2026, 07.37; riwayat 7 hari Nilai Saya: `riwayatSaya_` + `ujiRiwayat` di NilaiAplikasi.gs). Versi 57 (06.19; keputusan atasan 1-ketuk: `Keputusan.gs` + Pantauan.gs + 1 baris doPost). Versi 56 (05.50; B4 alasan potongan per kejadian: `Kejadian.gs` + Code.gs / PenilaianCw.gs / NilaiAplikasi.gs). Versi 55 (24 Okt 2026, 21.12; Pantauan pengawas & admin: `Pantauan.gs` + `action=pantauan` dan tanda `pantauan: true` untuk pengawas/admin di Kode.gs). Versi 54 (20.36; Peringatan dini pembinaan: `Pembinaan.gs` + `action=pembinaan` dan tanda `pembinaan: true` untuk pengawas/admin di Kode.gs). Versi 53 (14.49): CEK FOTO TIDAK SESUAI −30. Versi 52 (14.10): perbaikan baris ABSENSI tanpa NRP ("Pos 12.04 …", "Patwal R4", "3 Pers Laka") tetap diperlakukan uji coba, dan INTEGRITAS HARIAN menulis "Uji coba – data sudah direset" untuk anggota uji coba. | Apps Script |
+| Deploy server | **Versi 59** (26 Okt 2026, 13.42; Pantauan hanya NRP resmi + Polri/PHL, simpan 1x Rekap Admin → ASLI: Pantauan.gs + Keputusan.gs + Code.gs). Versi 58 (07.37; riwayat 7 hari Nilai Saya: `riwayatSaya_` + `ujiRiwayat` di NilaiAplikasi.gs). Versi 57 (06.19; keputusan atasan 1-ketuk: `Keputusan.gs` + Pantauan.gs + 1 baris doPost). Versi 56 (05.50; B4 alasan potongan per kejadian: `Kejadian.gs` + Code.gs / PenilaianCw.gs / NilaiAplikasi.gs). Versi 55 (24 Okt 2026, 21.12; Pantauan pengawas & admin: `Pantauan.gs` + `action=pantauan` dan tanda `pantauan: true` untuk pengawas/admin di Kode.gs). Versi 54 (20.36; Peringatan dini pembinaan: `Pembinaan.gs` + `action=pembinaan` dan tanda `pembinaan: true` untuk pengawas/admin di Kode.gs). Versi 53 (14.49): CEK FOTO TIDAK SESUAI −30. Versi 52 (14.10): perbaikan baris ABSENSI tanpa NRP ("Pos 12.04 …", "Patwal R4", "3 Pers Laka") tetap diperlakukan uji coba, dan INTEGRITAS HARIAN menulis "Uji coba – data sudah direset" untuk anggota uji coba. | Apps Script |
 | Aplikasi (GitHub Pages) | Commit `76fba4d`, cache service worker `cw-pagi-v39`. | GitHub |
 
 ## BELUM DIKERJAKAN / BELUM DIUJI
@@ -81,6 +81,21 @@ Tidak berisi kata sandi atau kode rahasia.
   - Rekap Integritas (mingguan/bulanan): tombol "★ Kartu & teks WA Teladan" → gambar PNG 1080×1350 (bagikan / unduh) +
     teks WhatsApp. Hanya aplikasi, tanpa perubahan server.
   - Aplikasi `web/` cache `cw-pagi-v52`.
+
+- [x] **Pantauan & Rekap Admin: 1x simpan, tidak muncul lagi; hanya NRP resmi; Polri / PHL terpisah** (26 Okt 2026):
+  server **Versi 59** (13.42; `ujiPantauan` jalan: Ceklok 24 anggota resmi, CW 11 baris). Aplikasi cache `cw-pagi-v53`
+  di branch `claude/pantauan-pengawas` — **belum di-push ke `main`** (perlu persetujuan pemilik).
+  - Rekap Admin: Simpan langsung diterapkan di layar & dikirim di belakang (tanpa memuat ulang seluruh data); gagal →
+    perubahan dikembalikan. Hadir pada baris ⚠️ Nihil = VERIFIKASI ASLI saat itu juga (`asliDariRekap_` di Keputusan.gs,
+    dipanggil doPost Code.gs), tanda "⚠️ lokasi diragukan" hilang (`diperiksa` hanya bila VERIFIKASI ≠ ASLI).
+  - Pantauan: keputusan (ASLI/PALSU, CEK FOTO, SETUJU/TOLAK, izinkan HP) langsung hilang dari daftar menunggu, dikirim
+    di belakang, dan disimpan di HP (`cw_putus`, 3 hari) sehingga tidak muncul lagi walau data server belum diperbarui.
+    Angka merah = yang masih perlu tindakan. Mencurigakan dipisah "Perlu keputusan" / "sudah diputuskan & informasi".
+  - Persetujuan: tanpa tautan sheet PERSETUJUAN (cukup di HP).
+  - Hanya NRP_RESMI (`PANTAU_HANYA_RESMI = true` di Pantauan.gs; `false` = semua anggota). Tombol Polri / PHL Satpas
+    (PHL = pangkat PHL di Data Satpas). Kunci cache `pantauan3|` (`hapusCachePantau_`).
+  - Cadangan: `apps-script/cadangan-sebelum-pantauan-resmi/`. Salinan di `catatan-lanjutan/server/`.
+  - [ ] Cek dengan akun admin / pengawas sungguhan setelah `main` diperbarui.
 
 ### Wajib dicek hari pertama (26/10/2026)
 - [ ] Satu NRP resmi: Lapor/Ceklok mengikuti aturan resmi (ditolak di luar jam/radius/tanpa foto).

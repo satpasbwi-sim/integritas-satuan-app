@@ -17,34 +17,84 @@ const PANTAU_SERING_MIN = 3;      // "sering mengajukan" bila sekian pengajuan d
 const PANTAU_BOBOT = { lokasi: 3, luar: 2, foto: 2, mirip: 2, tunda: 1 };
 const PANTAU_CACHE_DETIK = 300;   // bagian pola & foto (membaca seluruh LOG); hari ini & persetujuan selalu terkini
 const PANTAU_FOTO_MAKS = 150;     // daftar "Cek foto": paling banyak sekian foto terbaru yang belum dicek
+// Sementara aplikasi berjalan resmi bertahap: Pantauan hanya menampilkan anggota di NRP_RESMI (ModeResmi.gs,
+// Polri + PHL Satpas); anggota lain tidak ditampilkan. false = semua anggota seperti sebelumnya.
+const PANTAU_HANYA_RESMI = true;
+const PANTAU_KUNCI = 'pantauan3|';   // kunci cache pola & foto; dihapus setiap ada keputusan (Keputusan.gs)
+
+function hapusCachePantau_() {
+  CacheService.getScriptCache().removeAll([PANTAU_KUNCI + 'semua', PANTAU_KUNCI + 'satpas']);
+}
+
+/**
+ * Orang yang boleh tampil di Pantauan → kel(nrp, nama): 'polri' | 'phl' | '' (tidak ditampilkan).
+ * PHL = pangkat PHL di Data Satpas; nama dari Data Satpas dan sheet ANGGOTA (Lapor CW hanya punya nama petugas).
+ */
+function pesertaPantau_(ss) {
+  const nrp = {}, nama = {};
+  const boleh = function (n) { return !!n && (!PANTAU_HANYA_RESMI || resmiNrp_(n)); };
+  try {
+    satpasDaftar_().forEach(function (a) {
+      if (!boleh(a.nrp)) return;
+      const k = /^PHL$/i.test(a.pangkat) ? 'phl' : 'polri';
+      nrp[normIdSatpas_(a.nrp)] = k;
+      nama[normNama_(a.nama)] = k;
+    });
+  } catch (e) { /* Data Satpas tidak terbaca: hanya dari ANGGOTA */ }
+  const sh = ensureAnggota_(ss);
+  if (sh.getLastRow() >= 2) {
+    sh.getRange(2, 1, sh.getLastRow() - 1, 2).getDisplayValues().forEach(function (r) {
+      const n = normIdSatpas_(normNrp_(r[1]));
+      if (!r[0] || !boleh(n)) return;
+      if (!nrp[n]) nrp[n] = 'polri';
+      if (!nama[normNama_(r[0])]) nama[normNama_(r[0])] = nrp[n];
+    });
+  }
+  return {
+    kel: function (n, nm) {
+      const id = normIdSatpas_(n);
+      if (id && nrp[id]) return nrp[id];
+      if (nm && nama[normNama_(nm)]) return nama[normNama_(nm)];
+      return PANTAU_HANYA_RESMI ? '' : 'polri';
+    }
+  };
+}
 
 function pantauanData_(who) {
   const semua = who.role === 'admin';
   const ss = SpreadsheetApp.getActive();
   const tz = ss.getSpreadsheetTimeZone();
   const now = new Date();
+  const peserta = pesertaPantau_(ss);
   const out = {
     lingkup: semua ? 'semua' : 'satpas',
+    hanyaResmi: PANTAU_HANYA_RESMI,
     diperbarui: Utilities.formatDate(now, tz, 'dd/MM HH.mm'),
     hariIni: { tgl: Utilities.formatDate(now, tz, 'yyyy-MM-dd'), jam: Utilities.formatDate(now, tz, 'HH.mm') }
   };
-  try { out.hariIni.ceklok = pantauCeklokHariIni_(tz, now); } catch (e) { out.hariIni.ceklok = { error: 'Ceklok: ' + e.message }; }
+  try { out.hariIni.ceklok = pantauCeklokHariIni_(tz, now, peserta); } catch (e) { out.hariIni.ceklok = { error: 'Ceklok: ' + e.message }; }
   out.hariIni.cw = null;
-  if (semua) { try { out.hariIni.cw = pantauCwHariIni_(ss, tz, now); } catch (e) { out.hariIni.cw = { error: 'CW: ' + e.message }; } }
+  if (semua) { try { out.hariIni.cw = pantauCwHariIni_(ss, tz, now, peserta); } catch (e) { out.hariIni.cw = { error: 'CW: ' + e.message }; } }
   const cache = CacheService.getScriptCache();
-  const kunci = 'pantauan2|' + out.lingkup;   // dihapus Keputusan.gs setiap ada keputusan dari aplikasi
+  const kunci = PANTAU_KUNCI + out.lingkup;   // dihapus Keputusan.gs setiap ada keputusan dari aplikasi
   const simpan = cache.get(kunci);
   if (simpan) { const c = JSON.parse(simpan); out.pola = c.pola; out.foto = c.foto; }
   else {
     try {
-      const baca = bacaKejadianPantau_(ss, tz, now, semua);
+      const baca = bacaKejadianPantau_(ss, tz, now, semua, peserta);
       out.pola = hitungPolaPantau_(baca.kejadian, PANTAU_HARI);
       out.foto = baca.foto;
       try { cache.put(kunci, JSON.stringify({ pola: out.pola, foto: out.foto }), PANTAU_CACHE_DETIK); } catch (e) { /* terlalu besar: abaikan */ }
     } catch (e) { out.pola = { error: 'Pola: ' + e.message }; out.foto = []; }
   }
-  try { out.persetujuan = pantauPersetujuan_(ss, tz, now, semua); } catch (e) { out.persetujuan = { error: 'Persetujuan: ' + e.message }; }
-  try { out.hp = typeof pantauHpBaru_ === 'function' ? pantauHpBaru_(ss, tz, semua) : []; } catch (e) { out.hp = []; }
+  try { out.persetujuan = pantauPersetujuan_(ss, tz, now, semua, peserta); } catch (e) { out.persetujuan = { error: 'Persetujuan: ' + e.message }; }
+  try {
+    out.hp = (typeof pantauHpBaru_ === 'function' ? pantauHpBaru_(ss, tz, semua) : []).filter(function (h) {
+      const kel = peserta.kel(h.nrp, h.nama);
+      h.phl = kel === 'phl';
+      return !!kel;
+    });
+  } catch (e) { out.hp = []; }
   out.cekFoto = Object.keys(CEK_FOTO);   // pilihan chip CEK FOTO, urutan sama dengan spreadsheet
   return out;
 }
@@ -52,7 +102,7 @@ function pantauanData_(who) {
 // ---------- Hari ini: Ceklok Satpas ----------
 const PANTAU_URUT_CK = ['belum', 'izin_tolak', 'izin_menunggu', 'terlambat', 'nanti', 'hadir', 'keluar', 'pulang', 'izin'];
 
-function pantauCeklokHariIni_(tz, now) {
+function pantauCeklokHariIni_(tz, now, peserta) {
   const ssS = SpreadsheetApp.openById(SATPAS_SS_ID);
   const libur = liburSatpas_(ssS, tz);
   const umum = jadwalSatpas_(now, tz, libur, null);
@@ -61,11 +111,11 @@ function pantauCeklokHariIni_(tz, now) {
   const rows = barisCeklok_(ensureLogCeklok_(ssS), 600);
   const setuju = bacaPersetujuan_(umum.tgl.slice(0, 7)).ck;
   const mnt = nowMenit_(SpreadsheetApp.getActive(), now);
-  const baris = satpasDaftar_().filter(function (a) { return !pengawas_(a.nrp); }).map(function (a) {
+  const baris = satpasDaftar_().filter(function (a) { return !pengawas_(a.nrp) && peserta.kel(a.nrp, a.nama); }).map(function (a) {
     const j = jadwalSatpas_(now, tz, libur, a.nrp);
     const h = ceklokHari_(rows, tz, j.tgl, a.nrp);
     const b = { nrp: a.nrp, nama: a.nama, pokja: a.pokja, masuk: h.masuk ? h.masuk.jam : '', telat: 0,
-      pulang: h.pulang ? h.pulang.jam : '', ket: '', peringatan: false, ujiCoba: ujiCoba_(a.nrp) };
+      pulang: h.pulang ? h.pulang.jam : '', ket: '', peringatan: false, ujiCoba: ujiCoba_(a.nrp), phl: peserta.kel(a.nrp, a.nama) === 'phl' };
     [h.masuk, h.pulang, h.keluar].forEach(function (x) { if (x && x.peringatan && x.verif !== 'ASLI') b.peringatan = true; });
     if (h.tidak) {
       const st = (setuju[a.nrp + '|' + j.tgl] || {}).tidak;
@@ -94,7 +144,7 @@ function pantauCeklokHariIni_(tz, now) {
 // ---------- Hari ini: CW Pagi (admin) ----------
 const PANTAU_URUT_CW = ['belum', 'nihil', 'datang', 'nanti', 'tidak', 'tinggal', 'selesai', 'kode'];
 
-function pantauCwHariIni_(ss, tz, now) {
+function pantauCwHariIni_(ss, tz, now, peserta) {
   const tgl = Utilities.formatDate(now, tz, 'yyyy-MM-dd');
   const ringkas = { datang: 0, selesai: 0, terlambat: 0, belum: 0, tidak: 0, total: 0 };
   if (cwLibur_(tgl)) return { libur: 'Sabtu / Minggu: tidak ada CW Pagi', ringkas: ringkas, baris: [] };
@@ -105,14 +155,15 @@ function pantauCwHariIni_(ss, tz, now) {
   const mnt = nowMenit_(ss, now);
   const label = {};
   (d.codes || []).forEach(function (c) { label[c.code] = c.label; });
-  const baris = d.rows.filter(function (r) { return r.petugas; }).map(function (r) {
+  const baris = d.rows.filter(function (r) { return r.petugas && peserta.kel('', r.petugas); }).map(function (r) {
     const L = d.lapor[String(r.no)] || {};
     const b = { no: String(r.no), petugas: r.petugas, lokasi: r.lokasi, datang: L.datang ? L.datang.jam : '',
-      selesai: L.selesai ? L.selesai.jam : L.tinggal ? L.tinggal.jam : '', telat: 0, kode: '', ket: '' };
+      selesai: L.selesai ? L.selesai.jam : L.tinggal ? L.tinggal.jam : '', telat: 0, kode: '', ket: '', phl: peserta.kel('', r.petugas) === 'phl' };
     if (L.datang) b.telat = Math.max(0, Math.floor(menitJamTitik_(L.datang.jam) - batas));
-    if (L.diperiksa || L.st === KODE_NIHIL) b.status = 'nihil';
+    // Nihil yang sudah ASLI (ABSENSI sudah H) tidak lagi "Diperiksa"
+    if (L.diperiksa || (L.st === KODE_NIHIL && r.status !== 'H')) b.status = 'nihil';
     else if (L.tinggal) { b.status = 'tinggal'; b.ket = L.tinggal.ket || ''; }
-    else if (L.st === 'H') b.status = 'selesai';
+    else if (L.st === 'H' || L.st === KODE_NIHIL) b.status = 'selesai';
     else if (L.tidak) { b.status = 'tidak'; b.kode = L.st; b.ket = label[L.st] || L.st; }
     else if (L.datang) b.status = 'datang';
     else if (r.status) { b.status = 'kode'; b.kode = r.status; b.ket = label[r.status] || r.status; }
@@ -136,7 +187,7 @@ function pantauCwHariIni_(ss, tz, now) {
 // ---------- Mencurigakan ----------
 // Semua baris LOG LAPOR / LOG CEKLOK / LUAR RADIUS dalam jendela → {kejadian mentah, foto belum dicek}
 // (tanpa SpreadsheetApp di hitungPolaPantau_). Tiap baris LOG membawa ref {sumber, baris, ms, nama} untuk Keputusan.gs.
-function bacaKejadianPantau_(ss, tz, now, semua) {
+function bacaKejadianPantau_(ss, tz, now, semua, peserta) {
   const mulai = Utilities.formatDate(new Date(now.getTime() - (PANTAU_HARI - 1) * 86400000), tz, 'yyyy-MM-dd');
   const mulaiFoto = Utilities.formatDate(new Date(now.getTime() - (FOTO_SIMPAN_HARI - 1) * 86400000), tz, 'yyyy-MM-dd');
   const out = [], foto = [];
@@ -153,10 +204,13 @@ function bacaKejadianPantau_(ss, tz, now, semua) {
         foto: driveId_(r[9]) ? String(r[9]) : '', catatan: String(r[10] || ''), peringatan: String(r[11] || ''),
         verif: String(r[12] || '').trim().toUpperCase(), cekFoto: lebar >= KOL_CEK_FOTO ? String(r[13] || '').trim().toUpperCase() : '',
         ref: { sumber: sumber, baris: i + 2, ms: r[0].getTime(), nama: String(r[3] || '').trim() } };
+      const kel = peserta.kel(k.nrp, k.nama);
+      if (!kel) return;
+      k.phl = kel === 'phl';
       out.push(k);
       if (k.foto && !k.cekFoto && tgl >= mulaiFoto) {
         foto.push({ tgl: tgl, jam: k.jam, nama: k.nama, sumber: sumber, tahap: tahapPantau_(k), foto: k.foto,
-          ragu: !!k.peringatan && k.verif !== 'ASLI', ref: k.ref });
+          ragu: !!k.peringatan && k.verif !== 'ASLI', phl: k.phl, ref: k.ref });
       }
     });
   };
@@ -167,7 +221,9 @@ function bacaKejadianPantau_(ss, tz, now, semua) {
     shL.getRange(2, 1, shL.getLastRow() - 1, LUAR_HEADER.length).getDisplayValues().forEach(function (r) {
       const tgl = String(r[1]);
       if (tgl < mulai || (!semua && r[4] !== 'CEKLOK')) return;
-      out.push({ sumber: r[4] === 'CEKLOK' ? 'CEKLOK' : 'CW', luar: true, tgl: tgl, jam: String(r[5]), nama: String(r[3]).trim(),
+      const kel = peserta.kel(r[2], r[3]);
+      if (!kel) return;
+      out.push({ phl: kel === 'phl', sumber: r[4] === 'CEKLOK' ? 'CEKLOK' : 'CW', luar: true, tgl: tgl, jam: String(r[5]), nama: String(r[3]).trim(),
         nrp: normIdSatpas_(r[2]), durasi: Number(r[6]) || 0, jarak: r[7], peta: String(r[9] || '') });
     });
   }
@@ -184,7 +240,7 @@ function hitungPolaPantau_(mentah, hari) {
   const orang = {};
   const ambil = function (k) {
     const kunci = normNama_(k.nama) || k.nrp;
-    return orang[kunci] = orang[kunci] || { nama: k.nama, nrp: k.nrp || '', kejadian: [], tunda: [], titik: [] };
+    return orang[kunci] = orang[kunci] || { nama: k.nama, nrp: k.nrp || '', phl: !!k.phl, kejadian: [], tunda: [], titik: [] };
   };
   mentah.forEach(function (k) {
     if (!k.nama && !k.nrp) return;
@@ -220,7 +276,7 @@ function hitungPolaPantau_(mentah, hari) {
     let bobot = 0;
     o.kejadian.forEach(function (x) { ringkas[x.jenis] = (ringkas[x.jenis] || 0) + 1; bobot += PANTAU_BOBOT[x.jenis] || 1; });
     o.kejadian.sort(function (a, b) { return (b.tgl + b.jam).localeCompare(a.tgl + a.jam); });
-    daftar.push({ nama: o.nama, nrp: o.nrp, bobot: bobot, ringkas: ringkas, kejadian: o.kejadian.slice(0, 20) });
+    daftar.push({ nama: o.nama, nrp: o.nrp, phl: o.phl, bobot: bobot, ringkas: ringkas, kejadian: o.kejadian.slice(0, 20) });
   });
   daftar.sort(function (a, b) { return b.bobot - a.bobot || a.nama.localeCompare(b.nama); });
   return { hari: hari, daftar: daftar };
@@ -253,16 +309,18 @@ function jarakPantau_(lat1, lng1, lat2, lng2) {
 }
 
 // ---------- Persetujuan ----------
-function pantauPersetujuan_(ss, tz, now, semua) {
+function pantauPersetujuan_(ss, tz, now, semua, peserta) {
   const sh = ss.getSheetByName(SHEET_PERSETUJUAN);
-  const out = { menunggu: [], sering: [], url: semua && sh ? ss.getUrl() + '#gid=' + sh.getSheetId() : '' };
+  const out = { menunggu: [], sering: [] };   // diputuskan lewat HP (tab Pantauan), tanpa tautan spreadsheet
   if (!sh || sh.getLastRow() < 2) return out;
   const hariIni = Utilities.formatDate(now, tz, 'yyyy-MM-dd');
   const waktu = sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues();   // ms untuk ref keputusan (Keputusan.gs)
   const rows = sh.getRange(2, 1, sh.getLastRow() - 1, SETUJU_HEADER.length).getDisplayValues()
     .map(function (r, i) { return { tgl: String(r[1]), nrp: String(r[2]), nama: String(r[3]).trim(), jenis: String(r[4]),
       pengajuan: String(r[5]), ket: String(r[6]), keputusan: String(r[7]).trim().toUpperCase(),
-      ref: waktu[i][0] instanceof Date ? { sumber: 'SETUJU', baris: i + 2, ms: waktu[i][0].getTime(), nama: String(r[3]).trim() } : null }; });
+      ref: waktu[i][0] instanceof Date ? { sumber: 'SETUJU', baris: i + 2, ms: waktu[i][0].getTime(), nama: String(r[3]).trim() } : null,
+      kel: peserta ? peserta.kel(r[2], r[3]) : 'polri' }; })
+    .filter(function (r) { return r.kel; });
   return hitungPersetujuanPantau_(rows, hariIni, semua, out);
 }
 
@@ -275,11 +333,11 @@ function hitungPersetujuanPantau_(rows, hariIni, semua, out) {
     const st = r.keputusan === 'SETUJU' || r.keputusan === 'TOLAK' ? r.keputusan : 'MENUNGGU';
     if (st === 'MENUNGGU') {
       out.menunggu.push({ tgl: r.tgl, umur: selisihHariPantau_(r.tgl, hariIni), nama: r.nama, jenis: r.jenis,
-        pengajuan: r.pengajuan, ket: r.ket, ref: r.ref || null });
+        pengajuan: r.pengajuan, ket: r.ket, phl: r.kel === 'phl', ref: r.ref || null });
     }
     if (r.tgl.slice(0, 7) !== bulan) return;
     const k = normNama_(r.nama);
-    const h = hitung[k] = hitung[k] || { nama: r.nama, jumlah: 0, setuju: 0, tolak: 0, menunggu: 0 };
+    const h = hitung[k] = hitung[k] || { nama: r.nama, phl: r.kel === 'phl', jumlah: 0, setuju: 0, tolak: 0, menunggu: 0 };
     h.jumlah++;
     h[st.toLowerCase()]++;
   });
@@ -298,7 +356,7 @@ function selisihHariPantau_(a, b) {
 
 // Jalankan dari editor Apps Script (sebagai admin) untuk melihat hasil di Log eksekusi.
 function ujiPantauan() {
-  CacheService.getScriptCache().removeAll(['pantauan2|semua', 'pantauan2|satpas']);
+  hapusCachePantau_();
   const d = pantauanData_({ role: 'admin' });
   const ck = d.hariIni.ceklok || {}, cw = d.hariIni.cw || {};
   Logger.log('hariIni ' + d.hariIni.tgl + ' ' + d.hariIni.jam +
