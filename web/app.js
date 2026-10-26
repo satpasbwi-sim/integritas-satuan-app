@@ -707,7 +707,7 @@
     belum: ['Belum datang', 'th'], nihil: ['⚠️ Diperiksa', 'th'], datang: ['Datang', 'ok'], nanti: ['Belum waktunya', 'k'],
     tidak: ['Tidak hadir', 'far'], tinggal: ['Tinggalkan lokasi', 'ok'], selesai: ['Selesai', 'ok'], kode: ['', 'k']
   };
-  const JENIS_POLA = { lokasi: '⚠️ Lokasi diragukan', luar: 'Di luar radius', foto: 'Cek foto', mirip: 'Posisi nyaris sama', tunda: 'Laporan tertunda' };
+  const JENIS_POLA = { lokasi: '⚠️ Perlu diputuskan', luar: 'Di luar radius', foto: 'Cek foto', mirip: 'Posisi nyaris sama', tunda: 'Laporan tertunda' };
   function pantBaris(nama, sub, badge, kls, bawah, badge2) {
     return '<div class="rk-row pt-row"><div class="rk-top"><div class="rk-nama"><b>' + nama + '</b><small>' + sub + '</small></div>' +
       '<span class="pt-badges">' + (badge2 ? '<span class="badge far">' + esc(badge2) + '</span>' : '') +
@@ -1358,7 +1358,7 @@
     else if (l.tinggal) html += ' · 🚨 tinggalkan lokasi ' + esc(l.tinggal.jam) + ' <span class="badge far">tugas/kepentingan mendadak</span>' +
       (l.tinggal.ket ? ' ' + esc(l.tinggal.ket) : '');
     else if (d) html += ' <span class="badge far">⏳ belum Lapor Selesai</span>';
-    if (l.diperiksa) html += ' <span class="badge far">⚠️ lokasi diragukan, dicatat Nihil</span>';
+    if (l.diperiksa) html += ' <span class="badge far">⚠️ diragukan (lokasi / laporan tertunda), dicatat Nihil</span>';
     return '<div class="lapor-info">' + html + cekJarak(s || d) + '</div>';
   }
   function fmtJarak(m) { return m < 1000 ? Math.round(m) + ' m' : (m / 1000).toFixed(1).replace('.', ',') + ' km'; }
@@ -1682,7 +1682,7 @@
           '<h2 class="t">Laporan diterima, menunggu verifikasi sistem</h2>' +
           '<p class="sub">' + esc(namaSaya(r)) + ' · ' + esc(r.lokasi) + '<br>' + dateLabel() + '</p>' +
           '<p class="sub">Datang ' + (d ? esc(d.jam) : '–') + ' · Selesai ' + esc(s.jam) + '</p>' +
-          '<span class="badge far">⚠️ lokasi perlu dicek admin</span>' +
+          '<span class="badge far">⚠️ perlu dicek admin (lokasi / laporan tertunda)</span>' +
           '<p class="sub" style="margin-top:8px">Kehadiran belum dihitung. Bila Anda memang di titik, hubungi admin.</p>' +
           ulangBtn() + '<div class="switch" style="margin-top:14px">' + gantiBtn() + '</div>' +
         '</section>';
