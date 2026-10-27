@@ -2864,8 +2864,9 @@
       render();
     }
     if (!c || !c.pengawas) { ambilLokasi(); sinkronJam(); }
-    // ID HP dipulihkan dulu (IndexedDB / Cache Storage) sebelum permintaan pertama ke server
-    hpSiap.then(() => reload()).then(() => kirimAntre());
+    // ID HP dipulihkan dulu (IndexedDB / Cache Storage) sebelum permintaan pertama ke server; bila ID di localStorage
+    // sudah sah, hpSiap tidak mengubahnya (hanya menulis cadangan), jadi data langsung dimuat tanpa menunggu
+    (sahHp(HP_ID) ? reload() : hpSiap.then(() => reload())).then(() => kirimAntre());
   }
 
   if (pin) mulai(); else showLogin();
