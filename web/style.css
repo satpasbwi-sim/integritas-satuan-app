@@ -193,7 +193,7 @@ textarea {
   background: var(--navy); border-top: 2px solid var(--gold);
 }
 .ticker-track { display: flex; width: max-content; height: 28px; align-items: center; animation: ticker 40s linear infinite; }
-.ticker-track span { color: var(--gold); font-size: .78rem; font-weight: 700; letter-spacing: .08em; white-space: nowrap; padding-right: 4em; }
+.ticker-track span { color: var(--gold); font-size: .66rem; font-weight: 600; letter-spacing: .04em; white-space: nowrap; padding-right: 4em; }
 @keyframes ticker { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 @media (prefers-reduced-motion: reduce) {
   .ticker-track { animation: none; width: 100%; justify-content: center; }
@@ -328,6 +328,9 @@ h2.t { margin: 0 0 4px; font-size: 1.05rem; }
 .rk-skor.sb { color: #1f9d55; } .rk-skor.b { color: #5aa832; } .rk-skor.c { color: #d49a12; } .rk-skor.k { color: #dc3545; }
 .pb-s { font-weight: 800; } .pb-s.sb { color: #1f9d55; } .pb-s.b { color: #5aa832; } .pb-s.c { color: #d49a12; } .pb-s.k { color: #dc3545; }
 .pb-panah { color: #dc3545; font-weight: 700; }
+.pt-judul { margin: 16px 0 6px; font-size: .9rem; }
+.pt-row { cursor: default; padding: 8px 12px; margin: 6px 0; }
+.pt-row .badge { flex: 0 0 auto; white-space: nowrap; }
 .rk-isi { margin-top: 8px; border-top: 1px dashed var(--line); padding-top: 4px; }
 /* pratinjau disembunyikan sampai ukuran kamera stabil (lihat bukaKamera di app.js) */
 .kamera video { opacity: 0; transition: opacity .15s; }
@@ -351,6 +354,53 @@ h2.t { margin: 0 0 4px; font-size: 1.05rem; }
 @media (max-width: 420px) {
   .seg button { padding: 8px; font-size: .75rem; }
 }
+/* .seg kedua (Nilai Saya) jangan ikut menambah jarak & latar pada tombol Hadir/Tidak di Rekap Admin */
+.person .seg { margin: 0; padding: 0; gap: 0; background: var(--card); }
+.person .seg button { border-radius: 0; }
+
+/* ---------- Sentuhan visual: centang "tercatat" muncul, tombol terasa ditekan ---------- */
+/* (kartu tidak dianimasikan: Lapor CW digambar ulang tiap 20 detik, animasi akan berulang) */
+@media (prefers-reduced-motion: no-preference) {
+  .done .ic { animation: pop .45s cubic-bezier(.2, 1.4, .4, 1); }
+  .btn:not(:disabled):active, .mode button:active { transform: scale(.97); }
+}
+@keyframes pop { 0% { transform: scale(.4); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+/* ---------- Pantauan: tombol keputusan atasan (ASLI/PALSU, CEK FOTO, SETUJU/TOLAK, izinkan HP) ---------- */
+.pt-putus { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
+.pt-b { border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 999px; padding: 6px 12px;
+  font-size: .78rem; font-weight: 700; cursor: pointer; min-height: 34px; }
+.pt-b:disabled { opacity: .5; cursor: default; }
+.pt-b.pt-asli, .pt-b.pt-setuju, .pt-b.pt-ya, .pt-b.pt-sesuai { border-color: var(--hadir); color: var(--hadir); }
+.pt-b.pt-palsu, .pt-b.pt-tolak, .pt-b.pt-tidak { border-color: var(--th); color: var(--th); }
+.pt-b.pt-wajah, .pt-b.pt-seragam, .pt-b.pt-foto { border-color: #f0c674; color: var(--warn); }
+.pt-b.on { color: #fff; }
+.pt-b.on.pt-asli, .pt-b.on.pt-setuju, .pt-b.on.pt-ya, .pt-b.on.pt-sesuai { background: var(--hadir); }
+.pt-b.on.pt-palsu, .pt-b.on.pt-tolak, .pt-b.on.pt-tidak { background: var(--th); }
+.pt-b.on.pt-wajah, .pt-b.on.pt-seragam, .pt-b.on.pt-foto { background: #d97706; border-color: #d97706; }
+.pt-kirim { font-size: .72rem; color: var(--muted); }
+.pt-ok { font-size: .72rem; font-weight: 700; color: var(--hadir); }
+.cat-nilai li .pt-putus { margin: 6px 0 4px; }
+.pt-row .rk-nama small a, .cat-nilai a { color: var(--text); font-weight: 700; }
+
+/* ---------- Nilai Saya: penyebab nilai berkurang per kejadian ---------- */
+.kej { border: 1px solid var(--line); border-radius: 12px; padding: 4px 12px 8px; }
+.kej-tgl { margin: 10px 0 2px; font-size: .72rem; font-weight: 800; letter-spacing: .03em; color: var(--muted); text-transform: uppercase; }
+.kej-i { display: flex; gap: 8px; align-items: baseline; padding: 6px 0; border-top: 1px dashed var(--line); font-size: .85rem; line-height: 1.4; }
+.kej-tgl + .kej-i, .kej > .kej-i:first-child { border-top: 0; }
+.kej-u { flex: 0 0 auto; font-size: .66rem; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: var(--bg); color: var(--muted); border: 1px solid var(--line); }
+.kej-u.u-tepat, .kej-u.u-durasi, .kej-u.u-lengkap { background: var(--warn-bg); color: var(--warn); border-color: transparent; }
+.kej-u.u-hadir, .kej-u.u-ceklok, .kej-u.u-lokasi { background: var(--th-bg); color: var(--th); border-color: transparent; }
+.kej-semua { margin-top: 6px; }
+.btn.teladan-btn { width: 100%; margin-top: 12px; background: #fff3c4; border-color: #f0c94a; color: #8a6100; }
+.kartu-teladan { max-height: calc(100vh - 32px); overflow-y: auto; }
+.kartu-teladan .kt-img { display: block; width: 100%; max-width: 360px; margin: 8px auto; border-radius: 12px; }
+.kartu-teladan textarea { margin-top: 8px; }
+.kt-aksi .btn { flex: 1; }
+.rw-i { padding: 7px 0; border-top: 1px dashed var(--line); font-size: .85rem; }
+.kej-tgl + .rw-i { border-top: 0; }
+.rw-i .chips-hari { margin-top: 4px; }
+.rw-i .lv { padding: 3px 8px; font-size: .72rem; }
+.salam { margin: 0 0 2px; font-size: .78rem; font-weight: 700; color: var(--muted); letter-spacing: .02em; }
 
 /* ---------- Form kode admin ---------- */
 
@@ -363,6 +413,9 @@ main, .card, .person .info, .rk-nama, .skor-ket, .who > div { min-width: 0; }
   .mode button { flex: 1 1 30%; min-width: 0; padding: 9px 4px; font-size: .84rem; line-height: 1.2; }
   .seg { flex-wrap: wrap; }
   .seg button { min-width: 0; }
+  /* label tab (mis. "Mencurigakan" + angka) tetap 1 baris, tidak dipotong di tengah kata */
+  .seg button { flex: 1 1 auto; white-space: nowrap; overflow-wrap: normal; padding: 8px 4px; letter-spacing: -.01em; }
+  .seg button .badge { margin-left: 2px; padding: 1px 5px; font-size: .62rem; }
   .person .line { flex-wrap: wrap; }
   .person .seg { flex: 1 1 100%; }
   .person .seg button { flex: 1; padding: 8px 4px; }
@@ -372,3 +425,18 @@ main, .card, .person .info, .rk-nama, .skor-ket, .who > div { min-width: 0; }
   .rk-nama b { white-space: normal; overflow-wrap: anywhere; }
   .who { flex-wrap: wrap; }
 }
+/* Rekap Admin: baris yang sudah lapor lewat aplikasi dikunci; ringkasan sebelum Simpan */
+.person.kunci .info { opacity: .85; }
+.kunci-ket { display: grid; justify-items: end; gap: 4px; flex: none; }
+.kunci-ket .link { font-size: .75rem; padding: 0; }
+.konfirmasi { max-height: 85vh; overflow: auto; }
+.ks-list { margin: 8px 0 12px; padding-left: 22px; font-size: .85rem; line-height: 1.5; }
+.ks-list li { margin-bottom: 6px; }
+.ks-list li.ks-ganti { color: var(--th); }
+.konfirmasi .actions { display: flex; gap: 8px; }
+.konfirmasi .actions .btn { flex: 1; }
+/* Pantauan → Hari ini: chip ringkasan bisa diketuk untuk menyaring; tanda terlambat tetap tampil setelah pulang / selesai */
+.chips-hari button.lv { font: inherit; font-size: .8rem; font-weight: 600; cursor: pointer; text-align: left; border: 1px solid transparent; }
+.chips-hari button.lv.pilih { box-shadow: 0 0 0 2px currentColor inset; }
+.pt-badges { display: inline-flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; flex: none; max-width: 55%; }
+.pt-saring .link { padding: 0; font-size: inherit; }
