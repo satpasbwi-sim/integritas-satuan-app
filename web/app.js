@@ -1491,6 +1491,21 @@
   // jam server (ms) untuk watermark foto; performance.now() tidak ikut berubah bila jam HP diubah
   let jamServer = null;
   function serverNowMs() { return jamServer ? jamServer.ms + (performance.now() - jamServer.perf) : null; }
+  // jam server lewat permintaan ringan (action=jam), tidak menunggu data lengkap; satu permintaan sekaligus
+  let jamJalan = null;
+  function sinkronJam() {
+    if (!jamJalan) {
+      const t0 = performance.now();
+      jamJalan = fetch(API + '?action=jam').then((res) => res.json()).then((d) => {
+        if (!d.serverMs) return;
+        // separuh waktu perjalanan ditambahkan; data lengkap yang tiba belakangan tetap menimpa
+        const perf = performance.now();
+        if (!jamServer) jamServer = { ms: d.serverMs + (perf - t0) / 2, perf: perf };
+        if (d.now != null && jamSync.now == null) jamSync = { now: d.now + (perf - t0) / 120000, at: Date.now() };
+      }).catch(() => {}).finally(() => { jamJalan = null; });
+    }
+    return jamJalan;
+  }
   let lastFase = '';
   function menitSekarang() {
     if (jamSync.now == null) { const d = new Date(); return d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60; }
@@ -1590,7 +1605,7 @@
     if (f === 'belumBuka') body = info('⏰ Lapor dibuka pukul ' + jamTeks(j.buka), jadwalTeks);
     else if (f === 'tutup') {
       body = info('Waktu lapor sudah berakhir (' + jamTeks(j.tutup) + ')', l.datang
-        ? 'Anda Lapor Datang pukul ' + esc(l.datang.jam) + ' tetapi tidak Lapor Selesai, sehingga kehadiran hari ini tidak dihitung.'
+        ? 'Anda Lapor Datang pukul ' + esc(l.datang.jam) + ' tetapi tidak Lapor Selesai.'
         : 'Hari ini Anda belum lapor. Hubungi admin bila ada kendala.');
     } else if (f === 'telat') {
       body = info('Batas Lapor Datang ' + jamTeks(j.batasDatang) + ' sudah lewat',
@@ -1788,7 +1803,11 @@
   }
 
   async function bukaKamera() {
-    if (serverNowMs() == null) return toast('Jam server belum didapat. Ketuk tab di atas untuk memuat ulang.');
+    if (serverNowMs() == null) {
+      toast('Mengambil jam server…');
+      await sinkronJam();
+      if (serverNowMs() == null) return toast('Jam server belum didapat. Periksa sinyal internet lalu ketuk Ambil foto lagi.');
+    }
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       draft.kameraGagal = 'HP/browser tidak mendukung kamera';
       return updateFoto();
@@ -2775,7 +2794,7 @@
       if (c.pengawas) mode = 'rekapInt';
       render();
     }
-    if (!c || !c.pengawas) ambilLokasi();
+    if (!c || !c.pengawas) { ambilLokasi(); sinkronJam(); }
     // ID HP dipulihkan dulu (IndexedDB / Cache Storage) sebelum permintaan pertama ke server
     hpSiap.then(() => reload()).then(() => kirimAntre());
   }
