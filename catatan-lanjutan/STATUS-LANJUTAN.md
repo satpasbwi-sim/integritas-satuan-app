@@ -191,9 +191,8 @@ Tidak berisi kata sandi atau kode rahasia.
 
 ### Audit celah kecurangan (21 Okt) yang belum diterapkan
 - 2 cek kehadiran acak selfie · 9 sidak atasan.
-- Dikerjakan 28 Okt 2026 (kode server TERSIMPAN di editor Apps Script, dicek hash; **deployment Versi 67 belum diterapkan** –
-  klik Terapkan di Kelola deployment ditolak pengaman mode otomatis, pemilik yang menekan Terapkan; pemicu waktu sudah memakai
-  kode baru, aplikasi web /exec masih Versi 66; web/ belum di-push):
+- Dikerjakan 28 Okt 2026 (kode server TERSIMPAN di editor Apps Script, dicek hash; **Versi 67 diterapkan pemilik**, /exec menjawab
+  jamTanda; web/ di-push commit 1fd58df, cache cw-pagi-v61):
   - 5 piket dinilai dari jadwal: `JadwalNilai.gs` (sheet JADWAL PIKET HARIAN) + PenilaianCw.gs; Patwal Cadangan 3 = unit PIKET,
     Cadangan 4 = unit LEPAS DINAS (`PATWAL_PERAN_PENGGANTI`, Code.gs – **minta pemilik memastikan pemetaan ini**).
     `ujiJadwalNilai` sudah dijalankan: 78 personel CW dinilai tanpa error.
