@@ -3,7 +3,7 @@
 //   pola        : kejadian mencurigakan 7 hari terakhir per orang (LOG LAPOR, LOG CEKLOK, LUAR RADIUS)
 //   persetujuan : pengajuan izin / tugas mendadak yang belum diputuskan (sheet PERSETUJUAN) dan yang sering mengajukan
 // Pengawas (NRP_PENGAWAS) hanya melihat anggota Satpas (Ceklok), sama seperti Rekap Integritas; admin melihat semua.
-//   foto        : foto FOTO_SIMPAN_HARI hari terakhir yang belum diisi CEK FOTO (sebelum terhapus otomatis)
+//   foto        : foto PANTAU_FOTO_HARI hari terakhir yang belum diisi CEK FOTO (foto disimpan FOTO_SIMPAN_HARI hari)
 //   hp          : HP baru yang menunggu izin (sheet PERANGKAT)
 // Keputusan bisa diisi di spreadsheet atau lewat tombol di aplikasi (Keputusan.gs, memakai ref baris dari sini).
 // Rancangan: catatan-lanjutan/PANTAUAN-PENGAWAS.md
@@ -17,6 +17,7 @@ const PANTAU_SERING_MIN = 3;      // "sering mengajukan" bila sekian pengajuan d
 const PANTAU_BOBOT = { lokasi: 3, luar: 2, foto: 2, mirip: 2, tunda: 1 };
 const PANTAU_CACHE_DETIK = 300;   // bagian pola & foto (membaca seluruh LOG); hari ini & persetujuan selalu terkini
 const PANTAU_FOTO_MAKS = 150;     // daftar "Cek foto": paling banyak sekian foto terbaru yang belum dicek
+const PANTAU_FOTO_HARI = 7;       // daftar "Cek foto": foto sekian hari terakhir (maks PANTAU_HARI; foto tetap disimpan FOTO_SIMPAN_HARI)
 // Sementara aplikasi berjalan resmi bertahap: Pantauan hanya menampilkan anggota di NRP_RESMI (ModeResmi.gs,
 // Polri + PHL Satpas); anggota lain tidak ditampilkan. false = semua anggota seperti sebelumnya.
 const PANTAU_HANYA_RESMI = true;
@@ -98,6 +99,7 @@ function pantauanData_(who) {
     });
   } catch (e) { out.hp = []; }
   out.cekFoto = Object.keys(CEK_FOTO);   // pilihan chip CEK FOTO, urutan sama dengan spreadsheet
+  out.fotoHari = PANTAU_FOTO_HARI; out.fotoSimpan = FOTO_SIMPAN_HARI;   // teks daftar Cek foto di aplikasi
   return out;
 }
 
@@ -215,7 +217,7 @@ function pantauBarisPos_(ss, rows, peserta) {
 // (tanpa SpreadsheetApp di hitungPolaPantau_). Tiap baris LOG membawa ref {sumber, baris, ms, nama} untuk Keputusan.gs.
 function bacaKejadianPantau_(ss, tz, now, semua, peserta) {
   const mulai = Utilities.formatDate(new Date(now.getTime() - (PANTAU_HARI - 1) * 86400000), tz, 'yyyy-MM-dd');
-  const mulaiFoto = Utilities.formatDate(new Date(now.getTime() - (FOTO_SIMPAN_HARI - 1) * 86400000), tz, 'yyyy-MM-dd');
+  const mulaiFoto = Utilities.formatDate(new Date(now.getTime() - (Math.min(PANTAU_FOTO_HARI, FOTO_SIMPAN_HARI) - 1) * 86400000), tz, 'yyyy-MM-dd');
   const out = [], foto = [];
   const baca = function (sh, sumber) {
     if (!sh || sh.getLastRow() < 2) return;

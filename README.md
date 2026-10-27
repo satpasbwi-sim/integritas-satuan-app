@@ -88,6 +88,12 @@ Rekap, admin mengetik **kode admin** di kotak "Admin – buka menu Rekap" di baw
   hadir**: ABSENSI diisi **N (Nihil)**, sehingga LAPORAN HARIAN ikut Nihil, dan alasannya ditulis di
   sheet CATATAN. Anggota melihat "menunggu verifikasi sistem". Keputusannya di kolom **VERIFIKASI** LOG LAPOR
   (lihat *Verifikasi ⚠️ semi-otomatis*); bila ASLI, ABSENSI otomatis berubah N → H.
+- **Pola GPS** (aplikasi pemalsu lokasi yang mengacak koordinat beberapa meter). Aplikasi mengirim ringkasan sampel GPS
+  2 menit terakhir (`infoGps` di app.js) dan server menilainya (`cekPolaGps_` di Kode.gs): ketelitian GPS yang tidak berubah
+  sama sekali (≥ 15 sampel), tanpa ketinggian (altitude) padahal ketelitian ≤ 10 m, koordinat bergeser > 3 m/dtk sementara
+  kecepatan GPS 0 / kosong (≥ 80% sampel), waktu fix GPS di depan jam HP, masing-masing 1 tanda; lompatan mustahil
+  (> 250 km/jam antar-sampel yang sama-sama teliti) 2 tanda. Jumlah ≥ 2 (`GPS_POLA_AMBANG`) → ⚠️ "pola GPS janggal: …"
+  (bukti lemah, diputuskan atasan di Pantauan). Satu tanda saja tidak ditandai agar HP asli tidak terbebani.
 - Jam dan radius dicek di server, memakai jam server (tidak bisa diakali jam HP).
 
 ## 4. Pengoperasian harian (cukup di spreadsheet, tanpa push)
@@ -99,7 +105,7 @@ Rekap, admin mengetik **kode admin** di kotak "Admin – buka menu Rekap" di baw
 | Koordinat titik | Sheet **KOORDINAT**: kolom A = nama lokasi (sama dengan ABSENSI), kolom B = `lat, lng` dari Google Maps (tekan lama titik → salin angka). **Wajib diisi**: titik tanpa koordinat tidak bisa lapor. |
 | Plotting petugas | Sheet **ABSENSI** seperti biasa. Lokasi baru otomatis ditambahkan ke KOORDINAT. |
 | Personel pos jaga (BM) | Baris ABSENSI "Pos 12.04 Karangente / Pos 12.02 Ketapang" tidak memuat nama. Saat login, server membaca spreadsheet **Jadwal Piket BM** (sheet *Piket BM*) dan mengarahkan ke baris sesuai shift hari itu: KETERANGAN TUGAS "…Piket Malam" = M, "…Lepas Dinas" = LD, "Piket Siang" = S. Nama di ANGGOTA kolom A harus **sama persis** dengan nama di jadwal (mis. `AIPTU SUGIHARTO`). LOG LAPOR dan CATATAN mencatat nama asli pelapor. |
-| Personel Patwal R4 | Baris ABSENSI "Patwal R4" dengan KETERANGAN TUGAS "Cadangan 1 Wal R4" / "Cadangan 2 Wal R4" diisi unit CADANGAN 1 / CADANGAN 2 hari itu menurut spreadsheet **Piket Patwal** (sheet *Patwal*). Personel dicocokkan lewat **NRP** di tabel PERSONIL sheet Patwal (unit 503/504/506/507), jadi NRP di ANGGOTA harus sama dengan NRP di sheet Patwal. "Cadangan 3/4 Wal R4" sementara belum dipetakan. |
+| Personel Patwal R4 | Baris ABSENSI "Patwal R4" dengan KETERANGAN TUGAS "Cadangan 1 Wal R4" / "Cadangan 2 Wal R4" diisi unit CADANGAN 1 / CADANGAN 2 hari itu menurut spreadsheet **Piket Patwal** (sheet *Patwal*). Personel dicocokkan lewat **NRP** di tabel PERSONIL sheet Patwal (unit 503/504/506/507), jadi NRP di ANGGOTA harus sama dengan NRP di sheet Patwal. Jadwal hanya punya kolom PIKET, LEPAS DINAS, CADANGAN 1, CADANGAN 2, jadi "Cadangan 3 Wal R4" = unit **PIKET** dan "Cadangan 4 Wal R4" = unit **LEPAS DINAS** (`PATWAL_PERAN_PENGGANTI` di Kode.gs; bila kolom CADANGAN 3 / CADANGAN 4 ditambahkan di sheet Patwal, kolom itu yang dipakai). |
 | Personel Piket Laka Lantas | Baris ABSENSI "2 Pers Laka" dengan KETERANGAN TUGAS "Akan Naik Piket Laka" diisi **regu Piket** hari itu, "Cadangan Laka" diisi **regu Cadangan**, menurut spreadsheet **Jadwal Piket Laka** (sheet *Jadwal Piket* & *Data Regu*). Regu Lepas Dinas tidak punya plotting. Dicocokkan lewat **NRP** di Data Regu; bila NRP di sana salah/ganda, dicocokkan lewat **nama** di ANGGOTA (nama Data Regu tanpa gelar harus terkandung di nama ANGGOTA). |
 | Kode alasan (S, I, LD, …) | Sheet **PENGATURAN** E5:F11 (seperti sebelumnya). |
 
@@ -214,6 +220,13 @@ terkirim**. Anggota bisa lanjut ke langkah berikutnya (mis. Lapor Selesai), dan 
 - Server mencatat **jam lapor asli**, bukan jam terkirim, bila tertundanya paling lama **20 menit**
   (`ANTRE_MAKS_MENIT` di Kode.gs). Lebih dari itu, atau sudah ganti hari, laporan ditolak dan anggota melihat
   alasannya. Kolom CATATAN di LOG LAPOR diberi tanda `[terkirim 06.41, tertunda 12 mnt – sinyal putus]`.
+- **Jam HP dimundurkan saat sinyal putus.** Tiap sinkron jam server (`action=jam` dan data login) server memberi
+  **tanda tangan jam** (`tandaJam_`, HMAC dengan rahasia di Script Properties `JAM_RAHASIA`). Laporan tertunda membawa tanda
+  terakhir + selang sejak sinkron menurut `performance.now()` (tidak ikut berubah bila jam HP diubah) dan menurut jam HP.
+  Server (`periksaJamHp_`) memakai jam lapor = jam server bertanda + selang terbesar, jadi jam HP yang dimundurkan maupun HP
+  yang tidur tidak membuat jam lapor lebih awal. Jam HP mundur > 2 menit dari selang `performance.now()`, atau lebih awal dari
+  jam terbesar yang pernah dilihat aplikasi (dicatat tiap 20 detik di HP), ditandai ⚠️ **"jam HP dimundurkan"** = bukti kuat
+  (otomatis PALSU, atasan tetap bisa mengubah). Aplikasi dibuka ulang tanpa sinyal / tanpa tanda sah = bukti lemah.
 - Setiap laporan punya **ID kirim**. Bila laporan yang sama terkirim dua kali (jawaban server tidak sampai ke
   HP), server mengembalikan hasil pertama dan **tidak mencatatnya dua kali**.
 - Antrean hilang bila data browser dihapus. Bila anggota menekan **Keluar**, laporannya baru terkirim setelah
@@ -314,8 +327,10 @@ kapan saja lewat menu **🖨️ REKAP CETAK → Integritas – Hitung sekarang**
     🟪 SERAGAM TIDAK SESUAI · 🟥 FOTO LAYAR / FOTO LAMA. Kosong = tanpa warna. Menu yang sama juga merapikan LOG CEKLOK di
     spreadsheet Absensi Satpas (judul, filter, warna VERIFIKASI / CEK FOTO) dan mengurutkan + mewarnai tab di sana.
   - Potongan masuk unsur Kejujuran lokasi & foto, jenis dan jumlahnya ditulis di CATATAN.
-  - Foto Lapor CW **dan foto Ceklok Satpas** dipindah ke Sampah otomatis setelah 3 hari (`FOTO_SIMPAN_HARI`,
-    `hapusFotoLama` ±08.00), jadi periksa dalam 3 hari. Foto laporan / ceklok bertanda ⚠️ dan yang dinilai selain
+  - Foto Lapor CW **dan foto Ceklok Satpas** dipindah ke Sampah otomatis setelah **30 hari** (`FOTO_SIMPAN_HARI`,
+    `hapusFotoLama` ±08.00; dulu 3 hari) agar komplain / evaluasi nilai mingguan (rilis Senin) dan bulanan masih ada fotonya.
+    Aplikasi menyimpan foto sebagai **WebP** mutu 0,6 (`jepret`, app.js; HP yang belum bisa membuat WebP tetap JPEG).
+    Daftar Cek foto di tab Pantauan memuat foto 7 hari terakhir (`PANTAU_FOTO_HARI`). Foto laporan / ceklok bertanda ⚠️ dan yang dinilai selain
     `SESUAI` tetap disimpan sebagai bukti; kolom FOTO di LOG ditandai "foto dihapus <tanggal>".
   - Pasang sekali: jalankan `siapkanBuktiFoto` (membuat sheet JADWAL SERAGAM dan kolom CEK FOTO).
 - **Periode:** PENILAIAN INTEGRITAS = akumulasi **bulan berjalan** (dari tanggal 1 / `TGL_MULAI_INTEGRITAS` s.d. hari terakhir
@@ -353,8 +368,16 @@ kapan saja lewat menu **🖨️ REKAP CETAK → Integritas – Hitung sekarang**
 ## Penilaian personel CW Pagi (sheet PENILAIAN CW)
 
 File **PenilaianCw.gs** (salinan di `apps-script/`) menulis sheet **PENILAIAN CW** di spreadsheet CW Pagi: indikator
-penilaian **semua personel CW Pagi** (baris ABSENSI + yang lapor lewat jadwal Piket BM / Patwal / Laka), bukan hanya
-anggota Satpas. Ditulis ulang otomatis di hitungan pagi (±07.30) dan sore (±15.15), atau lewat menu
+penilaian **semua personel CW Pagi** (baris ABSENSI + personel jadwal Piket BM / Patwal / Laka), bukan hanya
+anggota Satpas.
+
+**Personel jadwal piket dinilai dari jadwalnya** (file **JadwalNilai.gs**). Sheet **JADWAL PIKET HARIAN** di spreadsheet
+CW Pagi mencatat siapa terjadwal di baris ABSENSI mana per tanggal (aturan pemilihan baris sama dengan login: Piket BM →
+Patwal Cadangan 1–4 → Piket Laka). Hari ini ditulis ulang tiap hitungan (±00.30, 07.30, 09.00, 11.00, 13.00, 15.15, 15.30),
+jadi tukar dinas / mutasi yang diubah di spreadsheet jadwal langsung terbaca; hari yang sudah lewat tidak diubah lagi.
+Hari terjadwal = hari wajib CW: Lapor Selesai = hadir, tidak lapor = tidak hadir (dulu tidak tercatat sama sekali). Tidak
+dinilai: baris yang hari itu dilapori personel lain yang tidak terjadwal (**tukar dinas**, ditulis di CATATAN), baris yang
+diisi `-` oleh admin, Sabtu–Minggu, Stand By / regu Lepas Dinas Laka (tanpa plotting). Uji dari editor: `ujiJadwalNilai`. Ditulis ulang otomatis di hitungan pagi (±07.30) dan sore (±15.15), atau lewat menu
 **🖨️ REKAP CETAK → Integritas – Hitung sekarang**. Bisa juga dijalankan langsung: fungsi `hitungPenilaianCw`.
 
 | Unsur | Bobot (`BOBOT_CW`) | Cara hitung |
@@ -549,7 +572,7 @@ spreadsheet kosong lagi untuk uji coba berikutnya:
   Reset manual sebelum 19.00 hanya menandai kemarin, sehingga input sesudah reset hari itu tetap dinilai.
   Aturan ini mati sendiri saat `UJI_COBA = false`.
 - **Tidak** disentuh: kode ABSENSI lain yang diisi admin (LD, S, I, D, P, `-`) dan bukan dari laporan aplikasi, plotting,
-  ANGGOTA, KOORDINAT, JADWAL, sheet Data / LIBUR SATPAS. Foto di Drive ikut terhapus oleh `hapusFotoLama` setelah 3 hari.
+  ANGGOTA, KOORDINAT, JADWAL, sheet Data / LIBUR SATPAS. Foto di Drive ikut terhapus oleh `hapusFotoLama` setelah 30 hari.
 - Input sesudah 19.00 tetap tersimpan sampai reset hari berikutnya.
 - Reset manual kapan saja: menu **🖨️ REKAP CETAK → Uji coba – Reset data sekarang** (ada konfirmasi).
 - Pasang sekali: tempel sebagai file baru di Apps Script → jalankan `pasangPemicuResetUjiCoba`. Untuk menu, tempel juga

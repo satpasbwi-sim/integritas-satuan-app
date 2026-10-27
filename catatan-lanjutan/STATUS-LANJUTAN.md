@@ -190,8 +190,17 @@ Tidak berisi kata sandi atau kode rahasia.
   `catatan-lanjutan/SKEMA-QR-DINAMIS.md`.
 
 ### Audit celah kecurangan (21 Okt) yang belum diterapkan
-- 2 cek kehadiran acak selfie · 5 piket BM/Patwal/Laka dinilai dari jadwal · 6 laporan tertunda tidak menguntungkan ·
-  7 waktu perangkat bisa mundur ≤20 mnt · 8 deteksi fake GPS lemah · 10 foto hanya 3 hari (usul 14–30 hari) · 9 sidak atasan.
+- 2 cek kehadiran acak selfie · 9 sidak atasan.
+- Dikerjakan 28 Okt 2026 (kode server TERSIMPAN di editor Apps Script, dicek hash; **deployment Versi 67 belum diterapkan** –
+  klik Terapkan di Kelola deployment ditolak pengaman mode otomatis, pemilik yang menekan Terapkan; pemicu waktu sudah memakai
+  kode baru, aplikasi web /exec masih Versi 66; web/ belum di-push):
+  - 5 piket dinilai dari jadwal: `JadwalNilai.gs` (sheet JADWAL PIKET HARIAN) + PenilaianCw.gs; Patwal Cadangan 3 = unit PIKET,
+    Cadangan 4 = unit LEPAS DINAS (`PATWAL_PERAN_PENGGANTI`, Code.gs – **minta pemilik memastikan pemetaan ini**).
+    `ujiJadwalNilai` sudah dijalankan: 78 personel CW dinilai tanpa error.
+  - 10 foto disimpan 30 hari (`FOTO_SIMPAN_HARI`), aplikasi memotret WebP 0,6 (fallback JPEG), Cek foto Pantauan 7 hari.
+  - 8 pola GPS (`cekPolaGps_` + `infoGps` di app.js) – bukti lemah, ambang 2 tanda.
+  - 6/7 tanda jam server HMAC (`tandaJam_` / `periksaJamHp_`), jam HP dimundurkan = bukti kuat; rahasia di Script Properties JAM_RAHASIA.
+  - Belum diuji di HP sungguhan: WebP di iPhone, pola GPS di Android (ambang mungkin perlu disetel bila banyak ⚠️ palsu).
 - Sudah diterapkan: 1 foto wajah Lapor Selesai, 3 satu NRP satu HP, 4 izin/tugas mendadak perlu persetujuan, titik tanpa koordinat ditolak.
 
 ## Cara deploy perubahan kode server (ringkas)

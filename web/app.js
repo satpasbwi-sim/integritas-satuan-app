@@ -831,8 +831,9 @@
   // foto yang belum diisi CEK FOTO, terbaru dulu, dikelompokkan per tanggal (server Pantauan.gs: pant.foto)
   function fotoMenunggu() { return (pant.foto || []).filter((f) => diKel(f) && !sudahPutus(f.ref)); }
   function pantFoto(list) {
-    if (!list.length) return '<p class="sub ok-nilai">✓ Semua foto 3 hari terakhir sudah dicek.</p>';
-    let html = '<p class="foot-nilai">' + list.length + ' foto belum dicek · foto terhapus otomatis setelah 3 hari. Buka foto, lalu sekali ketuk ' +
+    const hariFoto = pant.fotoHari || 3, simpanFoto = pant.fotoSimpan || 3;
+    if (!list.length) return '<p class="sub ok-nilai">✓ Semua foto ' + hariFoto + ' hari terakhir sudah dicek.</p>';
+    let html = '<p class="foot-nilai">' + list.length + ' foto belum dicek · foto disimpan ' + simpanFoto + ' hari lalu terhapus otomatis. Buka foto, lalu sekali ketuk ' +
       'penilaiannya — langsung tersimpan dan hilang dari daftar.</p>', tgl = '';
     list.forEach((f) => {
       if (f.tgl !== tgl) { tgl = f.tgl; html += '<h3 class="pt-judul">' + esc(tglPendek(tgl)) + '</h3>'; }
@@ -1072,7 +1073,7 @@
       data = d;
       if (!day || day === d.today) simpanCache(d);
       if (d.now != null) jamSync = { now: d.now, at: Date.now() };
-      if (d.serverMs) jamServer = { ms: d.serverMs, perf: performance.now() };
+      if (d.serverMs) aturJam(d.serverMs, d.jamTanda, performance.now());
       // tombol Rekap dihapus: Lapor CW (CW Pagi) dan, untuk anggota Satpas, Ceklok Satpas
       $('mode').hidden = false;
       mode = mode === 'pembinaan' && bisaPembinaan(d) ? 'pembinaan' : mode === 'pantauan' && bisaPantauan(d) ? 'pantauan' : d.pengawas ? 'rekapInt' : d.role === 'admin' && ['rekap', 'rekapInt', 'nilai'].includes(mode) ? mode : d.role === 'admin' && !d.me && !d.ceklok ? 'rekap' : mode === 'nilai' ? 'nilai' : d.ceklok && (mode === 'ceklok' || !d.me || hanyaCeklok(d)) ? 'ceklok' : 'lapor';
@@ -1488,9 +1489,37 @@
 
   // ---------- jam lapor: pakai jam server agar tidak bisa diakali dengan mengubah jam HP ----------
   let jamSync = { now: null, at: 0 };
-  // jam server (ms) untuk watermark foto; performance.now() tidak ikut berubah bila jam HP diubah
-  let jamServer = null;
-  function serverNowMs() { return jamServer ? jamServer.ms + (performance.now() - jamServer.perf) : null; }
+  // jam server (ms) untuk watermark foto & jam lapor. Selang sejak sinkron = yang terbesar dari performance.now()
+  // (tidak ikut berubah bila jam HP diubah, tetapi bisa berhenti saat HP tidur) dan jam HP (dev): jam HP yang
+  // dimundurkan maupun HP yang tidur tidak membuat jam lapor lebih awal. tanda = tanda tangan server atas ms (Code.gs
+  // periksaJamHp_), disimpan di HP agar laporan tertunda sesudah aplikasi dibuka ulang tetap bisa diperiksa server.
+  let jamServer = null;   // {ms, perf, dev, tanda}
+  function serverNowMs() {
+    return jamServer ? jamServer.ms + Math.max(performance.now() - jamServer.perf, Date.now() - jamServer.dev) : null;
+  }
+  function aturJam(ms, tanda, perf) {
+    jamServer = { ms, perf, dev: Date.now() - (performance.now() - perf), tanda: tanda || '' };
+    store('cw_jam', JSON.stringify({ ms, dev: jamServer.dev, tanda: jamServer.tanda }));
+    // jam HP sudah dibandingkan dengan server: mulai lagi pencatatan jam terbesar (catatJamMaks)
+    if (Math.abs(jamServer.dev - ms) < 5 * 60000) { store(JAM_MAKS, String(Date.now())); store(JAM_MUNDUR, ''); }
+  }
+  function jamSimpan() { try { const j = JSON.parse(load('cw_jam') || 'null'); return j && j.ms && j.dev ? j : null; } catch (e) { return null; } }
+  // jam HP yang lebih awal dari jam terbesar yang pernah dilihat aplikasi (> 2 menit) = jam dimundurkan, diingat sampai
+  // sinkron jam server berikutnya (dikirim bersama laporan tertunda)
+  const JAM_MAKS = 'cw_jam_maks', JAM_MUNDUR = 'cw_jam_mundur';
+  function catatJamMaks() {
+    const n = Date.now(), m = Number(load(JAM_MAKS) || 0);
+    if (m && n < m - 120000) store(JAM_MUNDUR, '1');
+    else if (n > m) store(JAM_MAKS, String(n));
+  }
+  function infoJam() {
+    catatJamMaks();
+    const j = jamServer || jamSimpan(), mundur = !!load(JAM_MUNDUR);
+    if (!j) return { mundur };
+    return { tanda: j.tanda || '', perf: jamServer ? Math.round(performance.now() - jamServer.perf) : null, dev: Math.round(Date.now() - j.dev), mundur };
+  }
+  setInterval(catatJamMaks, 20000);
+  catatJamMaks();
   // jam server lewat permintaan ringan (action=jam), tidak menunggu data lengkap; satu permintaan sekaligus
   let jamJalan = null;
   function sinkronJam() {
@@ -1500,7 +1529,7 @@
         if (!d.serverMs) return;
         // separuh waktu perjalanan ditambahkan; data lengkap yang tiba belakangan tetap menimpa
         const perf = performance.now();
-        if (!jamServer) jamServer = { ms: d.serverMs + (perf - t0) / 2, perf: perf };
+        aturJam(d.serverMs + (perf - t0) / 2, d.jamTanda, perf);
         if (d.now != null && jamSync.now == null) jamSync = { now: d.now + (perf - t0) / 120000, at: Date.now() };
       }).catch(() => {}).finally(() => { jamJalan = null; });
     }
@@ -1872,7 +1901,10 @@
     });
   }
 
-  // gambar frame kamera + pita watermark di bawah, dikecilkan (maks 1280 px, JPEG ±100–250 KB)
+  // gambar frame kamera + pita watermark di bawah, dikecilkan (maks 1280 px). WebP mutu FOTO_WEBP_MUTU ±40–60% lebih kecil
+  // dari JPEG 0,72 dengan watermark tetap tajam (foto disimpan 30 hari di Drive). Browser yang belum bisa membuat WebP
+  // (Safari / iPhone lama) mengembalikan PNG dari toDataURL: dipakai JPEG seperti sebelumnya.
+  const FOTO_WEBP_MUTU = 0.6;
   function jepret(video, lines) {
     const s = Math.min(1, 1280 / Math.max(video.videoWidth, video.videoHeight));
     const w = Math.round(video.videoWidth * s), h = Math.round(video.videoHeight * s);
@@ -1890,7 +1922,8 @@
       g.font = (i === 0 ? 'bold ' : '') + fs + 'px sans-serif';
       g.fillText(t, pad, h - tinggi + pad + i * lh, w - pad * 2);
     });
-    return c.toDataURL('image/jpeg', 0.72);
+    const webp = c.toDataURL('image/webp', FOTO_WEBP_MUTU);
+    return webp.indexOf('data:image/webp') === 0 ? webp : c.toDataURL('image/jpeg', 0.72);
   }
 
   // ---------- GPS: dipantau terus (watchPosition), bukan diminta ulang dari nol ----------
@@ -1900,7 +1933,38 @@
   let pantauGps = null;
   let terakhirOk = null;   // status radius terakhir, agar peringatan "di luar radius" tidak berulang
 
+  // ---------- pola GPS untuk deteksi lokasi palsu (dinilai server: cekPolaGps_ di Code.gs) ----------
+  // Aplikasi pemalsu lokasi modern mengacak (jitter) koordinat beberapa meter, jadi cek koordinat identik tidak cukup.
+  // Dikirim ringkasan sampel 2 menit terakhir: ketelitian yang tidak pernah berubah, ketinggian (altitude) yang tidak
+  // ada, koordinat bergeser > 3 m/dtk padahal kecepatan GPS 0 / kosong, lompatan mustahil, dan waktu fix vs jam HP.
+  const SAMPEL_MS = 120000;
+  let sampelGps = [];
+  function catatSampel(pos) {
+    const c = pos.coords, t = performance.now();
+    const akhir = sampelGps[sampelGps.length - 1];
+    if (akhir && pos.timestamp && akhir.ts === pos.timestamp) return;   // posisi yang sama dikirim ulang (cache HP)
+    sampelGps = sampelGps.filter((s) => t - s.t <= SAMPEL_MS).slice(-119).concat([{ t, ts: pos.timestamp || 0,
+      lat: c.latitude, lng: c.longitude, acc: c.accuracy, alt: c.altitude, spd: c.speed, umur: Date.now() - (pos.timestamp || Date.now()) }]);
+  }
+  function infoGps() {
+    const t = performance.now(), s = sampelGps.filter((x) => t - x.t <= SAMPEL_MS);
+    if (!s.length) return null;
+    let lompat = 0, pasang = 0, diamGeser = 0;
+    for (let i = 1; i < s.length; i++) {
+      const a = s[i - 1], b = s[i], dt = (b.t - a.t) / 1000;
+      if (dt < 0.5) continue;
+      const d = jarakM(a, b);
+      pasang++;
+      if (a.acc <= 30 && b.acc <= 30 && d > 2 * (a.acc + b.acc)) lompat = Math.max(lompat, d / dt);
+      if (!(b.spd > 0.5) && d / dt > 3 && b.acc <= 15) diamGeser++;
+    }
+    const akhir = s[s.length - 1];
+    return { n: s.length, accBeda: new Set(s.map((x) => Math.round(x.acc * 10))).size, adaAlt: s.some((x) => x.alt != null),
+      lompat: Math.round(lompat), pasang, diamGeser, umur: Math.round(akhir.umur / 1000) };
+  }
+
   function terimaPosisi(pos) {
+    catatSampel(pos);
     draft.lat = pos.coords.latitude; draft.lng = pos.coords.longitude; draft.acc = pos.coords.accuracy;
     draft.posAt = pos.timestamp || Date.now();
     draft.gpsMsg = '';
@@ -2036,6 +2100,7 @@
       if (draft.posAt && Date.now() - draft.posAt <= GPS_SEGAR_MS) return selesai();
       if (!navigator.geolocation) return selesai();
       navigator.geolocation.getCurrentPosition((pos) => {
+        catatSampel(pos);
         draft.lat = pos.coords.latitude; draft.lng = pos.coords.longitude; draft.acc = pos.coords.accuracy;
         draft.posAt = pos.timestamp || Date.now();
         selesai();
@@ -2045,8 +2110,10 @@
 
   // aplikasi disembunyikan (layar mati / pindah aplikasi): hentikan pantauan, lanjutkan saat dibuka lagi
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) { hentikanGps(); luar = null; }
+    if (document.hidden) { hentikanGps(); luar = null; sampelGps = []; }
     else {
+      // HP sempat tidur: performance.now() bisa tertinggal, jam server disinkronkan lagi bila ada sinyal
+      if (navigator.onLine) sinkronJam();
       kirimLuar();
       if (data && (mode === 'lapor' && myRow() || mode === 'ceklok' && data.ceklok || wajibDipantau())) ambilLokasi();
       kirimAntre();
@@ -2072,7 +2139,8 @@
         jenis: tahap === 'tinggal' ? draft.jenis : '',
         note: draft.note.trim(),
         idKirim: Date.now().toString(36) + Math.random().toString(36).slice(2, 10),
-        waktuMs: Math.round(serverNowMs() || Date.now())   // jam lapor asli, dipakai server bila terkirim tertunda
+        waktuMs: Math.round(serverNowMs() || Date.now()),   // jam lapor asli, dipakai server bila terkirim tertunda
+        jam: infoJam(), gps: pakaiLokasi ? infoGps() : null
       };
       // simpan di HP dulu: bila sinyal putus atau aplikasi tertutup, laporan tidak hilang
       const sebelumnya = antreSaya().length;
@@ -2288,7 +2356,8 @@
         foto: pakaiLokasi ? draft.foto : '', fotoMs: pakaiLokasi ? draft.fotoMs : 0,
         note: ck.note.trim(), alasanLembur: tahap === 'pulang' ? ck.lembur.trim() : '',
         idKirim: Date.now().toString(36) + Math.random().toString(36).slice(2, 10),
-        waktuMs: Math.round(serverNowMs() || Date.now())
+        waktuMs: Math.round(serverNowMs() || Date.now()),
+        jam: infoJam(), gps: pakaiLokasi ? infoGps() : null
       };
       // sama dengan Lapor: disimpan di HP dulu, terkirim otomatis bila sinyal putus
       const sebelumnya = antreSaya().length;
