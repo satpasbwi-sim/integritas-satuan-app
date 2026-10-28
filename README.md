@@ -91,8 +91,8 @@ Rekap, admin mengetik **kode admin** di kotak "Admin – buka menu Rekap" di baw
 - **Pola GPS** (aplikasi pemalsu lokasi yang mengacak koordinat beberapa meter). Aplikasi mengirim ringkasan sampel GPS
   2 menit terakhir (`infoGps` di app.js) dan server menilainya (`cekPolaGps_` di Kode.gs): ketelitian GPS yang tidak berubah
   sama sekali (≥ 15 sampel), tanpa ketinggian (altitude) padahal ketelitian ≤ 10 m, koordinat bergeser > 3 m/dtk sementara
-  kecepatan GPS 0 / kosong (≥ 80% sampel), waktu fix GPS di depan jam HP, masing-masing 1 tanda; lompatan mustahil
-  (> 250 km/jam antar-sampel yang sama-sama teliti) 2 tanda. Jumlah ≥ 2 (`GPS_POLA_AMBANG`) → ⚠️ "pola GPS janggal: …"
+  kecepatan GPS 0 / kosong (≥ 80% sampel), waktu fix GPS di depan jam HP, masing-masing 1 tanda; lompatan
+  (> 250 km/jam antar-sampel yang sama-sama teliti, menurut waktu fix GPS; posisi cache HP > 5 dtk diabaikan) juga 1 tanda. Jumlah ≥ 2 (`GPS_POLA_AMBANG`) → ⚠️ "pola GPS janggal: …"
   (bukti lemah, diputuskan atasan di Pantauan). Satu tanda saja tidak ditandai agar HP asli tidak terbebani.
 - Jam dan radius dicek di server, memakai jam server (tidak bisa diakali jam HP).
 

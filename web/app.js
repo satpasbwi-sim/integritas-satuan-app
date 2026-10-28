@@ -1943,6 +1943,9 @@
     const c = pos.coords, t = performance.now();
     const akhir = sampelGps[sampelGps.length - 1];
     if (akhir && pos.timestamp && akhir.ts === pos.timestamp) return;   // posisi yang sama dikirim ulang (cache HP)
+    // posisi lama dari cache HP (maximumAge, mis. lokasi rumah sebelum GPS terkunci) bukan sampel saat ini: tanpa ini
+    // perpindahan cache → GPS terbaca sebagai "lompatan mustahil" (kasus 28/10, ⚠️ palsu pada Lapor Datang)
+    if (pos.timestamp && Date.now() - pos.timestamp > 5000) return;
     sampelGps = sampelGps.filter((s) => t - s.t <= SAMPEL_MS).slice(-119).concat([{ t, ts: pos.timestamp || 0,
       lat: c.latitude, lng: c.longitude, acc: c.accuracy, alt: c.altitude, spd: c.speed, umur: Date.now() - (pos.timestamp || Date.now()) }]);
   }
@@ -1951,7 +1954,8 @@
     if (!s.length) return null;
     let lompat = 0, pasang = 0, diamGeser = 0;
     for (let i = 1; i < s.length; i++) {
-      const a = s[i - 1], b = s[i], dt = (b.t - a.t) / 1000;
+      // selang dari waktu fix GPS (bukan waktu diterima aplikasi, yang bisa berdempet saat GPS baru terkunci)
+      const a = s[i - 1], b = s[i], dt = (a.ts && b.ts ? b.ts - a.ts : b.t - a.t) / 1000;
       if (dt < 0.5) continue;
       const d = jarakM(a, b);
       pasang++;
