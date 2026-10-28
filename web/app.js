@@ -2228,6 +2228,13 @@
     if (!bebas && m > c.tutup) return 'tutup';
     return 'masuk';
   }
+  // Ceklok Pulang (tombol & pengingat) baru tampil mulai pukul 12.30 Senin–Kamis, 11.30 Jumat–Sabtu (hari dari jam server)
+  const PULANG_BUKA = { 1: 750, 2: 750, 3: 750, 4: 750, 5: 690, 6: 690 };
+  function bukaPulangCk() {
+    if (data.bebasWaktu) return null;
+    const b = PULANG_BUKA[new Date(serverNowMs() || Date.now()).getDay()];
+    return b != null && menitSekarang() < b ? b : null;
+  }
   function okLokasiCk() { const c = data.ceklok; return data.bebasWaktu || (draft.lat != null && (c.bebasLokasi || jarakM(draft, c) <= c.radius)); }
   function labelIzin(k) { const c = (data.ceklok.izin || []).find((x) => x.code === k); return c ? c.label : k; }
 
@@ -2314,18 +2321,23 @@
       const cepat = c.pulang != null ? Math.ceil(c.pulang - m) : 0;
       const lembur = menitLembur(m);
       const batas = c.tutupLembur || c.tutup;
+      const tungguPulang = bukaPulangCk();
       const lemburStep = lembur ? '<div class="step"><h3>Alasan lembur <small>wajib</small></h3>' +
         '<input class="note-in" id="ckLembur" maxlength="200" placeholder="Mis. pelayanan SIM membludak, ujian praktik susulan" value="' + esc(ck.lembur) + '"></div>' : '';
-      body = info('✓ Masuk pukul ' + esc(h.masuk.jam) + (h.masuk.antre ? ' (belum terkirim)' : ''),
+      if (tungguPulang != null) {
+        body = info('✓ Masuk pukul ' + esc(h.masuk.jam) + (h.masuk.antre ? ' (belum terkirim)' : ''),
+          'Ceklok Pulang dibuka pukul ' + jamTeks(tungguPulang) + (c.pulang != null ? ' (jam pulang ' + jamTeks(c.pulang) + ')' : '') + '.') +
+          '<div class="switch"><button class="btn tinggal" data-a="ckModeKeluar">🚨 Ada Tugas/Kepentingan? Tinggalkan Kantor</button></div>';
+      } else body = info('✓ Masuk pukul ' + esc(h.masuk.jam) + (h.masuk.antre ? ' (belum terkirim)' : ''),
         c.pulang != null && cepat > 0 ? 'Jam pulang ' + jamTeks(c.pulang) + '. Ceklok Pulang sekarang tercatat <b>pulang cepat ' + cepat + ' menit</b>.'
-          : lembur ? 'Jam pulang ' + jamTeks(c.pulang) + '. Ceklok Pulang sekarang tercatat <b>lembur ' + durTeks(lembur) + '</b> (tidak mengurangi nilai; bonus lembur setelah disetujui atasan). Isi alasan lembur. Batas pukul ' + jamTeks(batas) + '.'
+          : lembur ? 'Jam pulang ' + jamTeks(c.pulang) + '. Ceklok Pulang sekarang tercatat <b>lembur ' + durTeks(lembur) + '</b> (tidak mengurangi nilai; bonus lembur setelah diverifikasi sistem). Isi alasan lembur. Batas pukul ' + jamTeks(batas) + '.'
           : 'Silakan Ceklok Pulang' + (c.pulang != null ? ' (jam pulang ' + jamTeks(c.pulang) + ')' : '') + '. Bila lembur, Ceklok Pulang masih bisa sampai pukul ' + jamTeks(batas) + '.') +
         gpsStep + fotoStep + lemburStep + noteStep(false) + tombol('ckPulang', lembur ? '🏠 Ceklok Pulang (lembur)' : '🏠 Ceklok Pulang', cepat > 0 ? 'w' : 'h') +
         '<div class="switch"><button class="btn tinggal" data-a="ckModeKeluar">🚨 Ada Tugas/Kepentingan? Tinggalkan Kantor</button></div>';
     } else if (f === 'keluar') {
       const jenisList = c.tugasMendadak || JENIS_TUGAS;
       body = info('🚨 Tinggalkan Kantor – Tugas/Kepentingan Mendadak', 'Masuk tercatat pukul ' + esc(h.masuk.jam) +
-          '. Ceklok hari ini selesai dan dihitung lengkap setelah disetujui atasan. Ceklok Pulang tidak diperlukan lagi.') +
+          '. Ceklok hari ini selesai dan dihitung lengkap setelah diverifikasi sistem. Ceklok Pulang tidak diperlukan lagi.') +
         '<div class="step"><h3>Jenis tugas / kepentingan <small>wajib</small></h3><div class="chips">' + jenisList.map((x) =>
           '<button data-a="ckJenis" data-v="' + esc(x) + '"' + (ck.jenis === x ? ' class="on"' : '') + '>' + esc(x) + '</button>').join('') +
         '</div></div>' +
@@ -2404,7 +2416,7 @@
       if (tahap === 'masuk' || tahap === 'tidak') ulangCk = false;
       toast(out.diperiksa ? 'Ceklok tercatat pukul ' + out.jam + ', lokasi perlu diverifikasi sistem'
         : tahap === 'masuk' ? '✓ Ceklok Masuk pukul ' + out.jam + (out.selisih ? ' — terlambat ' + out.selisih + ' menit' : '')
-        : tahap === 'pulang' ? '✓ Ceklok Pulang pukul ' + out.jam + (out.selisih ? ' — pulang cepat ' + out.selisih + ' menit' : out.lembur ? ' — lembur ' + durTeks(out.lembur) + (out.lemburTunggu ? ', menunggu persetujuan atasan' : '') : '')
+        : tahap === 'pulang' ? '✓ Ceklok Pulang pukul ' + out.jam + (out.selisih ? ' — pulang cepat ' + out.selisih + ' menit' : out.lembur ? ' — lembur ' + durTeks(out.lembur) + (out.lemburTunggu ? ', menunggu verifikasi sistem' : '') : '')
         : tahap === 'keluar' ? '✓ Tercatat meninggalkan kantor pukul ' + out.jam + ' — ceklok hari ini selesai'
         : '✓ Laporan tidak masuk terkirim');
       sending = false;
@@ -2553,7 +2565,7 @@
           ? { kunci: 'masuk', mode: 'ceklok', judul: 'Belum Ceklok Masuk', teks: 'Jam masuk pukul ' + jamTeks(c.masuk) + '.' }
           : { kunci: 'masuk2', mode: 'ceklok', judul: 'Segera Ceklok Masuk', teks: 'Sudah lewat jam masuk ' + jamTeks(c.masuk) + ', ceklok sekarang tercatat terlambat.' };
       }
-      if (f === 'pulang' && c.pulang != null && m >= c.pulang && m <= (c.tutupLembur || c.tutup)) {
+      if (f === 'pulang' && c.pulang != null && m >= c.pulang && bukaPulangCk() == null && m <= (c.tutupLembur || c.tutup)) {
         return { kunci: 'pulang', mode: 'ceklok', judul: 'Jangan lupa Ceklok Pulang', teks: 'Jam pulang pukul ' + jamTeks(c.pulang) + '. Ceklok Pulang sebelum meninggalkan kantor (lembur: isi alasan).' };
       }
     }
