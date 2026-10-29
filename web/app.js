@@ -1687,7 +1687,8 @@
   }
 
   function renderSelesai(r, l) {
-    const hadir = l.st === 'H';
+    // Lapor Selesai Nihil karena ⚠️ yang sudah diputuskan ASLI (tidak lagi diperiksa) = hadir; server lama masih mengirim st N
+    const hadir = l.st === 'H' || (l.st === 'N' && !!l.selesai && !l.diperiksa && !l.tidak);
     const note = savedNote(r);
     const d = l.datang, s = l.selesai || l.tinggal, t = l.tidak;
     if (l.antre) {
