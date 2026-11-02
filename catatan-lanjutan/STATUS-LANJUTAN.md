@@ -33,8 +33,8 @@ Tidak berisi kata sandi atau kode rahasia.
 - 2 Nov 2026: rekap mingguan 26 Okt–1 Nov kosong karena dihitung Senin sesudah Ganti Bulan (hari Oktober sudah diarsip)
   dan hasil kosong menimpa nilai. Diperbaiki di editor (tersimpan, pemicu sudah memakai): NilaiAplikasi.gs tidak menimpa
   dengan hasil kosong, IntegritasMingguan.gs tidak menyimpan riwayat kosong, GantiBulan.gs menulis mingguan final bagian
-  bulan lama. Pemulihan: jalankan `pulihkanMingguanOktober2026` (IntegritasMingguan.gs) dari editor – BELUM dijalankan
-  (ditolak pengaman, pemilik yang menekan Jalankan). Baris kosong "26 Oktober 2026 – 1 November 2026" di RIWAYAT
+  bulan lama. Pemulihan `pulihkanMingguanOktober2026` (IntegritasMingguan.gs) SUDAH dijalankan 2 Nov 14.11: 35 baris mingguan final
+  (24 satpas + 11 cw). Baris kosong "26 Oktober 2026 – 1 November 2026" di RIWAYAT
   INTEGRITAS MINGGUAN masih ada (hapus manual bila setuju). Server web: Versi 70 belum diterapkan (getLapor_ ASLI → H).
 ### Dipilih untuk dikerjakan
 - [x] Peringatan dini pembinaan (skor mingguan turun 2 minggu berturut-turut, tab Pembinaan untuk pengawas/admin):
