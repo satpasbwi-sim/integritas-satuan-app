@@ -30,6 +30,11 @@ Tidak berisi kata sandi atau kode rahasia.
 | Aplikasi (GitHub Pages) | Commit `76fba4d`, cache service worker `cw-pagi-v39`. | GitHub |
 
 ## BELUM DIKERJAKAN / BELUM DIUJI
+- 6 Nov 2026 cek kesehatan: semua pemicu Selesai kecuali hitungIntegritasSore 5 Nov (Waktu Habis 360 dtk, error 28,57%).
+  Diperbaiki di editor (tersimpan): INTEGRITAS HARIAN tidak dihitung lagi di 15.15 (sudah oleh rekapHarianBerkala 15.30),
+  hitungIntegritasSatpas dibungkus try, siapJadwal_ dipakai ulang dalam satu eksekusi (JadwalNilai.gs). Cek tingkat error
+  pemicu di halaman Pemicu beberapa hari ke depan. PerbaikiData.gs di editor berisi "File sementara: cek arah login Laka"
+  (beda dengan salinan lokal sejak sebelum 28 Okt).
 - 2 Nov 2026: rekap mingguan 26 Okt–1 Nov kosong karena dihitung Senin sesudah Ganti Bulan (hari Oktober sudah diarsip)
   dan hasil kosong menimpa nilai. Diperbaiki di editor (tersimpan, pemicu sudah memakai): NilaiAplikasi.gs tidak menimpa
   dengan hasil kosong, IntegritasMingguan.gs tidak menyimpan riwayat kosong, GantiBulan.gs menulis mingguan final bagian
