@@ -1550,9 +1550,12 @@
 
   // fase Lapor CW: belumBuka → datang → tunggu → selesai → beres; telat/tutup bila waktunya lewat
   // masa uji coba (data.bebasWaktu): tanpa batas jam, datang → selesai → beres
+  const KODE_IZIN_CW = ['LD', 'D', 'S', 'I', 'P', 'C', '-'];   // KODE_TIDAK_DINILAI (Code.gs) + cuti
   function fase(r) {
     const l = laporOf(r) || {}, m = menitSekarang(), j = J();
     if (l.st) return 'beres';
+    // kode izin / dinas dari admin di baris milik sendiri (baris pos / piket dipakai bersama: tidak berlaku)
+    if (!data.bebasWaktu && !data.piket && !l.datang && KODE_IZIN_CW.includes(String(r.status || '').trim().toUpperCase())) return 'izinAdmin';
     // tinggal: Tinggalkan Lokasi (tugas mendadak), kapan saja setelah Lapor Datang
     if (data.bebasWaktu) return draft.tidak ? 'tidak' : draft.tinggal && l.datang ? 'tinggal' : l.datang ? 'selesai' : 'datang';
     if (m < j.buka) return 'belumBuka';
@@ -1616,6 +1619,15 @@
     const l = laporOf(r) || {};
     const f = lastFase = fase(r);
     if (f === 'beres') return renderSelesai(r, l);
+    if (f === 'izinAdmin') {
+      // izin / dinas yang diisi admin di ABSENSI: Lapor CW dikunci (server lapor_ juga menolak)
+      v.innerHTML = '<section class="card done t"><div class="ic">📋</div>' +
+        '<h2 class="t">Hari ini tercatat ' + esc(r.status === '-' ? 'tidak bertugas CW' : labelOf(r.status)) + '</h2>' +
+        '<p class="sub">' + esc(namaSaya(r)) + ' · ' + esc(r.lokasi) + '<br>' + dateLabel() + '</p>' +
+        '<p class="sub">Diisi admin di ABSENSI. Lapor CW hari ini tidak perlu; bila keliru, hubungi admin.</p>' +
+        '<div class="switch" style="margin-top:14px">' + gantiBtn() + '</div></section>';
+      return;
+    }
     const j = J(), m = menitSekarang();
     const jadwalTeks = 'Lapor Datang ' + jamTeks(j.buka) + '–' + jamTeks(j.batasDatang) + ' (lewat itu tercatat terlambat, paling lambat ' + jamTeks(j.tutup) + ')' +
       ', Lapor Selesai ' + jamTeks(j.mulaiSelesai) + '–' + jamTeks(j.tutup) + ', dalam radius ' + radius() + ' m dari titik.';
@@ -2292,6 +2304,11 @@
         '<p class="sub">Masuk ' + esc(hm.jam) + tunda(hm) + telat + ' · Pulang ' + esc(h.pulang.jam) + tunda(h.pulang) + cepat + lemburBadge + '</p>' +
         (ragu ? '<span class="badge far">⚠️ lokasi diragukan</span>' : '<span class="badge ok">✓ lengkap</span>'));
     }
+    if (f === 'izin' && h.tidak.admin) {
+      // rapat / dinas / izin yang dicatat admin (server: sheet IZIN DINAS SATPAS)
+      return kartuSelesai(' t', '📋', 'Tercatat ' + esc(labelIzin(h.tidak.kode)) + ' oleh admin',
+        (h.tidak.ket ? '<p class="sub">' + esc(h.tidak.ket) + '</p>' : '') + '<p class="sub">Hari ini tidak perlu Ceklok Satpas.</p>');
+    }
     if (f === 'izin') {
       return kartuSelesai(' t', '✕', 'Tidak masuk: ' + esc(labelIzin(h.tidak.kode)), '<p class="sub">dilaporkan pukul ' + esc(h.tidak.jam) + tunda(h.tidak) + '</p>' + '<p class="sub" style="margin-top:8px"><span class="badge far">⏳ menunggu verifikasi sistem</span></p>');
     }
@@ -2547,7 +2564,7 @@
     if (!data || $('app').hidden || data.bebasWaktu || data.role === 'pengawas') return null;
     const m = menitSekarang(), j = J();
     const r = !data.cwLibur && data.today && !hanyaCeklok(data) ? myRow() : null;
-    if (r) {
+    if (r && fase(r) !== 'izinAdmin') {
       const l = laporOf(r) || {};
       if (!l.st && !l.datang && m >= j.buka && m <= j.tutup) {
         return m <= j.batasDatang
