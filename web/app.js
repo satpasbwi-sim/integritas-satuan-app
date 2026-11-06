@@ -272,7 +272,7 @@
           'Dinilai s.d. ' + tglPendek(n.sampai) + ' · diperbarui ' + esc(n.diperbarui) + '</p>';
       }
       if (ada.length < 3) isi += '<p class="foot-nilai">Nilai mingguan dan bulanan muncul setelah rekapnya final ' +
-        '(mingguan: Senin pagi sesudah minggu berakhir; bulanan: sesudah akhir bulan).</p>';
+        '(mingguan: Minggu pukul ±00.00, sesudah Senin–Sabtu selesai; bulanan: sesudah akhir bulan).</p>';
     }
     v.innerHTML = '<section class="card nilai"><div class="who"><div><b>Nilai Saya</b><div class="loc">' +
       esc((nilai && nilai.nama) || data.nama || '') + '</div></div></div>' + seg + isi +
@@ -457,7 +457,7 @@
         'Ketuk nama untuk melihat rincian.</p>' +
         '<div id="rkList">' + rekapListHtml(baris) + '</div>';
       if (ada.length < 3) isi += '<p class="foot-nilai">Rekap mingguan dan bulanan muncul setelah final ' +
-        '(mingguan: Senin pagi sesudah minggu berakhir; bulanan: sesudah akhir bulan).</p>';
+        '(mingguan: Minggu pukul ±00.00, sesudah Senin–Sabtu selesai; bulanan: sesudah akhir bulan).</p>';
     }
     v.innerHTML = '<section class="card nilai"><div class="who"><div><b>Rekap Integritas</b><div class="loc">' +
       esc(data.nama || '') + (data.role === 'admin' ? ' · admin' : ' · pengawas') + '</div></div></div>' + seg + isi + kaki + '</section>';
@@ -601,7 +601,7 @@
           '<span class="rk-skor ' + warnaNilai(akhir) + '">' + String(akhir).replace('.', ',') + '<small>' + esc(r.predikat || '') + '</small></span></div>' + buka + '</div>';
       }).join('') : '<p class="sub ok-nilai">✓ Tidak ada anggota dengan skor turun 2 minggu berturut-turut.</p>';
       isi = kepala + (daftar.length ? '<p class="foot-nilai">Urut dari penurunan terbesar. Angka kiri = total turun. Ketuk nama untuk melihat rincian.</p>' : '') +
-        list + '<p class="foot-nilai">Hanya terlihat oleh pengawas dan admin. Dihitung dari rekap mingguan final (Senin pagi).</p>';
+        list + '<p class="foot-nilai">Hanya terlihat oleh pengawas dan admin. Dihitung dari rekap mingguan final (Minggu ±00.00).</p>';
     }
     v.innerHTML = '<section class="card nilai"><div class="who"><div><b>Peringatan Dini Pembinaan</b><div class="loc">' +
       esc(data.nama || '') + (data.role === 'admin' ? ' · admin' : ' · pengawas') + '</div></div></div>' + isi + kaki + '</section>';

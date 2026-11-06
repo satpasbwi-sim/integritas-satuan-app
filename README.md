@@ -337,7 +337,9 @@ kapan saja lewat menu **🖨️ REKAP CETAK → Integritas – Hitung sekarang**
   yang sudah ditutup), dihitung ulang tiap pagi.
 - **Penilaian mingguan** (file **IntegritasMingguan.gs**, rumus sama, periode Senin–Minggu):
   - Sheet **INTEGRITAS MINGGUAN**: minggu yang memuat hari kemarin, ditulis ulang tiap pemicu ±07.30
-    (Selasa–Minggu = minggu berjalan; Senin pagi = nilai final minggu lalu).
+    (Selasa–Minggu = minggu berjalan; Senin pagi = nilai final minggu lalu). Rekap final dirilis **Minggu ±00.00**
+    (`rekapMingguanMinggu`, pemicu mingguan; Minggu tidak ada CW / Ceklok), Senin pagi menghitung ulang bila ada keputusan
+    atasan yang menyusul.
   - Sheet **RIWAYAT INTEGRITAS MINGGUAN**: nilai final tiap minggu disimpan otomatis setiap Senin pagi
     (1 baris per anggota per minggu; minggu yang sama dihitung ulang = barisnya diganti).
   - Menu **🖨️ REKAP CETAK → Integritas – Mingguan (pilih minggu)**: hitung minggu tertentu; minggu yang sudah lewat
