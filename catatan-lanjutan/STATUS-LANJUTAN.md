@@ -30,6 +30,10 @@ Tidak berisi kata sandi atau kode rahasia.
 | Aplikasi (GitHub Pages) | Commit `76fba4d`, cache service worker `cw-pagi-v39`. | GitHub |
 
 ## BELUM DIKERJAKAN / BELUM DIUJI
+- 7 Nov 2026: **Versi 70** diterapkan (05.42): Lapor CW dikunci pada hari izin/dinas (laporan Tidak hadir sendiri atau kode
+  S/I/C/D/P/LD/- admin di ABSENSI, baris milik sendiri), Ceklok dikunci + dinilai izin sah dari sheet IZIN DINAS SATPAS
+  (spreadsheet Absensi Satpas; dibuat otomatis saat pertama dibaca: izinAdminSatpas_ di Code.gs), getLapor_ ASLI → H,
+  hitungIntegritasSore lebih ringan. Aplikasi commit 657251d, cache cw-pagi-v66.
 - 6 Nov 2026 cek kesehatan: semua pemicu Selesai kecuali hitungIntegritasSore 5 Nov (Waktu Habis 360 dtk, error 28,57%).
   Diperbaiki di editor (tersimpan): INTEGRITAS HARIAN tidak dihitung lagi di 15.15 (sudah oleh rekapHarianBerkala 15.30),
   hitungIntegritasSatpas dibungkus try, siapJadwal_ dipakai ulang dalam satu eksekusi (JadwalNilai.gs). Cek tingkat error
