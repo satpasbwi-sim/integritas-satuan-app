@@ -30,6 +30,7 @@ Tidak berisi kata sandi atau kode rahasia.
 | Aplikasi (GitHub Pages) | Commit `76fba4d`, cache service worker `cw-pagi-v39`. | GitHub |
 
 ## BELUM DIKERJAKAN / BELUM DIUJI
+- 7 Nov 2026: pemicu `rekapMingguanMinggu` (Minggu ±00.00, IntegritasMingguan.gs) terpasang; rekap mingguan final dirilis Minggu.
 - 7 Nov 2026: **Versi 70** diterapkan (05.42): Lapor CW dikunci pada hari izin/dinas (laporan Tidak hadir sendiri atau kode
   S/I/C/D/P/LD/- admin di ABSENSI, baris milik sendiri), Ceklok dikunci + dinilai izin sah dari sheet IZIN DINAS SATPAS
   (spreadsheet Absensi Satpas; dibuat otomatis saat pertama dibaca: izinAdminSatpas_ di Code.gs), getLapor_ ASLI → H,
