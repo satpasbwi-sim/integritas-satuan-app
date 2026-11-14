@@ -48,7 +48,10 @@ async function uji(nama, siapkan) {
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   // server Apps Script tiruan: jawaban kosong yang wajar
-  await page.route(/script\.google(usercontent)?\.com/, (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ error: 'uji otomatis' }) }));
+  await page.route(/script\.google(usercontent)?\.com/, (r) => {
+    if (r.request().url().includes('action=logError')) errors.push('pengaman.js mengirim error: ' + (r.request().postData() || '').slice(0, 300));
+    return r.fulfill({ contentType: 'application/json', body: JSON.stringify({ error: 'uji otomatis' }) });
+  });
   await page.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
   if (siapkan) await page.addInitScript(siapkan);
   await page.goto(alamat, { waitUntil: 'load' });

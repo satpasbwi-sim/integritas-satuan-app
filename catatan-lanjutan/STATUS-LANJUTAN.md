@@ -241,5 +241,9 @@ Folder `apps-script/` tidak masuk git (ada di .gitignore). Cadangan = folder itu
 - [x] `web/pengaman.js` (dimuat sebelum app.js): gagal mulai → buang data simpanan tampilan + muat ulang 1x, lalu layar
   "Aplikasi gagal dibuka"; error sesudah berjalan → bilah "Muat ulang"; 10 error terakhir di `cw_err_log`. Cache `cw-pagi-v69`.
 - [x] README bagian "Pengaman otomatis & kembali ke versi sebelumnya" (rollback aplikasi & Apps Script tanpa AI).
-- [ ] Usulan lanjutan: kirim `cw_err_log` ke server (`action=logError` + sheet LOG ERROR, ikut email cek kesehatan).
-- [ ] Usulan lanjutan: cadangan kode Apps Script (`apps-script/`) di repo privat / Google Drive.
+- [x] Tayang 14 Nov 2026 (PR #3, `main` = `b2fd8f1`): job periksa & deploy hijau.
+- [x] Aplikasi mengirim error ke server (`pengaman.js` → POST `/exec?action=logError`), cache `cw-pagi-v70`.
+  - [ ] **Server belum dipasang**: tempel `catatan-lanjutan/server/ErrorAplikasi.gs`, 1 baris di awal `doPost` Code.gs,
+    deploy Versi baru, jalankan `pasangPemicuErrorAplikasi` + `ujiErrorAplikasi` (README "Pengaman otomatis" bagian D).
+- [ ] **Cadangan kode Apps Script ke Drive** (`catatan-lanjutan/server/Cadangan.gs`) belum dipasang: aktifkan Apps Script API,
+  tambah 2 cakupan di appsscript.json, jalankan `cadangkanKodeSekarang` lalu `pasangPemicuCadangan` (README bagian E).
