@@ -262,6 +262,11 @@ berisi versi deployment yang aktif). Hanya bila kode berubah; disimpan 60 cadang
 - Memulihkan satu file: buka cadangan tanggal yang diinginkan → salin isi file → tempel ke file bernama sama di editor
   → simpan → Terapkan → Kelola deployment → Versi baru.
 
+### F. Deploy otomatis kode server (clasp, opsional)
+Panduan: `deploy-server/PANDUAN.md`. Kode Apps Script dipindah ke repo GitHub **privat** `integritas-server`; setiap push
+GitHub mengirim kode dan membuat Versi baru pada `/exec` yang sama, dengan pemeriksaan kode, penjaga ubahan di editor,
+cek kesehatan sesudah deploy dan **rollback otomatis**. Sesudah terpasang, kode server tidak diubah lagi di editor.
+
 **Aturan sederhana agar jarang rusak:** ubah satu hal per kali; setelah push/deploy, buka aplikasi di HP dan coba
 satu kali login + satu menu; bila aneh, langsung rollback (bagian C) lalu cari penyebabnya dengan tenang.
 Pemicu terjadwal yang gagal tetap dikabarkan lewat email (bagian *Notifikasi gangguan*).

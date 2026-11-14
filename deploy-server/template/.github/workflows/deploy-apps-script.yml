@@ -1,0 +1,152 @@
+name: Deploy Apps Script
+
+# Repo PRIVAT kode server. Setiap push ke main yang mengubah src/:
+#   1. periksa penulisan kode semua src/*.gs
+#   2. jaga-jaga: kode di editor Apps Script harus sama dengan versi terakhir di repo (tidak ada ubahan manual
+#      yang akan tertimpa). Bila berbeda → berhenti; ambil dulu ubahan itu (clasp pull) atau jalankan dengan "paksa".
+#   3. clasp push → deploy Versi baru ke deployment /exec yang sama (URL tidak berubah)
+#   4. cek /exec?action=jam menjawab JSON. Gagal → otomatis kembali ke versi sebelumnya + workflow merah (email GitHub).
+# Rollback manual: Actions → Deploy Apps Script → Run workflow → isi "kembali_ke_versi" (mis. 70).
+#
+# Perlu (Settings → Secrets and variables → Actions):
+#   Secret   CLASPRC_JSON   isi file %USERPROFILE%\.clasprc.json sesudah "clasp login"
+#   Variable DEPLOYMENT_ID  bagian URL /exec di antara /s/ dan /exec (sama dengan web/config.js aplikasi)
+
+on:
+  push:
+    branches: [main]
+    paths: ['src/**']
+  workflow_dispatch:
+    inputs:
+      kembali_ke_versi:
+        description: 'Rollback: nomor versi Apps Script yang dipakai lagi (mis. 70). Kosongkan untuk deploy biasa.'
+        required: false
+        default: ''
+      paksa:
+        description: 'Deploy walau kode di editor Apps Script berbeda dengan repo (ubahan di editor akan TERTIMPA)'
+        type: boolean
+        default: false
+
+concurrency:
+  group: apps-script
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      DEPLOYMENT_ID: ${{ vars.DEPLOYMENT_ID }}
+      KEMBALI: ${{ inputs.kembali_ke_versi }}
+      PAKSA: ${{ inputs.paksa }}
+      SEBELUM: ${{ github.event.before }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Pasang clasp & kunci akses
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          npm install -g @google/clasp@2.4.2
+          if [ -z "$CLASPRC_JSON" ] || [ -z "$DEPLOYMENT_ID" ]; then
+            echo "::error::Secret CLASPRC_JSON atau variable DEPLOYMENT_ID belum diisi (lihat PANDUAN)."; exit 1
+          fi
+          printf '%s' "$CLASPRC_JSON" > ~/.clasprc.json
+          chmod 600 ~/.clasprc.json
+          node -e "JSON.parse(require('fs').readFileSync(process.env.HOME + '/.clasprc.json','utf8'))" \
+            || { echo "::error::CLASPRC_JSON bukan JSON yang benar"; exit 1; }
+          echo "API_URL=https://script.google.com/macros/s/$DEPLOYMENT_ID/exec" >> "$GITHUB_ENV"
+
+      - name: Versi yang sedang aktif
+        run: |
+          clasp deployments | tee /tmp/dep.txt
+          AKTIF=$(grep -F -- "- $DEPLOYMENT_ID " /tmp/dep.txt | grep -o '@[0-9]\+' | tr -d @ || true)
+          if [ -z "$AKTIF" ]; then echo "::error::Deployment $DEPLOYMENT_ID tidak ditemukan / bukan versi bernomor"; exit 1; fi
+          echo "Versi aktif sekarang: $AKTIF"
+          echo "AKTIF=$AKTIF" >> "$GITHUB_ENV"
+
+      - name: Rollback ke versi yang diminta
+        if: inputs.kembali_ke_versi != ''
+        run: |
+          case "$KEMBALI" in (*[!0-9]*|'') echo "::error::kembali_ke_versi harus angka"; exit 1;; esac
+          clasp deploy -i "$DEPLOYMENT_ID" -V "$KEMBALI" -d "Rollback manual dari GitHub (sebelumnya Versi $AKTIF)"
+          echo "BARU=$KEMBALI" >> "$GITHUB_ENV"
+
+      - name: Periksa penulisan kode
+        if: inputs.kembali_ke_versi == ''
+        run: |
+          mkdir -p /tmp/cek
+          ls src/*.gs >/dev/null
+          for f in src/*.gs; do
+            cp "$f" "/tmp/cek/$(basename "$f").js"
+            node --check "/tmp/cek/$(basename "$f").js" || { echo "::error file=$f::Penulisan kode salah"; exit 1; }
+            echo "✓ $f"
+          done
+          # deploy memakai pengaturan Aplikasi web dari manifes: harus "Jalankan sebagai: Saya" + "Akses: Siapa saja"
+          node -e "
+            const m = JSON.parse(require('fs').readFileSync('src/appsscript.json','utf8'));
+            const w = m.webapp || {};
+            if (w.executeAs !== 'USER_DEPLOYING' || w.access !== 'ANYONE_ANONYMOUS') {
+              console.log('::error file=src/appsscript.json::appsscript.json harus berisi \"webapp\": {\"executeAs\": \"USER_DEPLOYING\", \"access\": \"ANYONE_ANONYMOUS\"} (sekarang: ' + JSON.stringify(m.webapp) + ')');
+              process.exit(1);
+            }" && echo "✓ src/appsscript.json (Aplikasi web: Saya, Siapa saja)"
+
+      - name: Pastikan tidak ada ubahan di editor yang akan tertimpa
+        if: inputs.kembali_ke_versi == '' && inputs.paksa != true
+        run: |
+          # pembanding = isi repo sebelum push ini (atau HEAD bila dijalankan manual)
+          BASIS="$SEBELUM"
+          if [ -z "$BASIS" ] && [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then BASIS=HEAD; fi
+          if [ -z "$BASIS" ] || ! git cat-file -e "$BASIS:src" 2>/dev/null; then
+            echo "Push pertama (belum ada versi sebelumnya di repo): pemeriksaan ini dilewati."; exit 0
+          fi
+          mkdir -p /tmp/remote /tmp/basis
+          SCRIPT_ID=$(node -p "require('./.clasp.json').scriptId")
+          printf '{"scriptId":"%s","rootDir":".","fileExtension":"gs"}' "$SCRIPT_ID" > /tmp/remote/.clasp.json
+          (cd /tmp/remote && clasp pull >/dev/null)
+          rm /tmp/remote/.clasp.json
+          git archive "$BASIS" src | tar -x -C /tmp/basis
+          if ! diff -r --strip-trailing-cr /tmp/basis/src /tmp/remote > /tmp/beda.txt; then
+            head -60 /tmp/beda.txt
+            echo "::error::Kode di editor Apps Script BERBEDA dengan repo (ada ubahan langsung di editor). Di laptop: clasp pull, commit, push lagi. Atau Run workflow dengan 'paksa' bila ubahan editor memang boleh ditimpa."
+            exit 1
+          fi
+          echo "✓ Editor Apps Script sama dengan repo"
+
+      - name: Kirim kode & deploy versi baru
+        if: inputs.kembali_ke_versi == ''
+        run: |
+          clasp push -f
+          PESAN=$(git log -1 --format=%s | cut -c1-80)
+          clasp deploy -i "$DEPLOYMENT_ID" -d "GitHub ${GITHUB_SHA::7}: $PESAN" | tee /tmp/deploy.txt
+          BARU=$(grep -o '@[0-9]\+' /tmp/deploy.txt | tail -1 | tr -d @)
+          echo "Versi baru: $BARU (sebelumnya $AKTIF)"
+          echo "BARU=$BARU" >> "$GITHUB_ENV"
+
+      - name: Cek server menjawab (rollback otomatis bila gagal)
+        run: |
+          sehat() {
+            curl -sSL --max-time 60 "$API_URL?action=jam" -o /tmp/jawab.txt || return 1
+            node -e "const d=JSON.parse(require('fs').readFileSync('/tmp/jawab.txt','utf8')); if(!d||typeof d!=='object'||d.error) process.exit(1)"
+          }
+          for i in 1 2 3 4; do
+            if sehat; then echo "✓ /exec sehat (Versi ${BARU:-?})"; exit 0; fi
+            echo "Percobaan $i gagal:"; head -c 300 /tmp/jawab.txt 2>/dev/null; echo; sleep 10
+          done
+          if [ -n "$KEMBALI" ]; then echo "::error::Server tidak sehat sesudah rollback ke Versi $KEMBALI"; exit 1; fi
+          echo "::error::Server tidak menjawab dengan benar sesudah deploy Versi $BARU → kembali ke Versi $AKTIF"
+          clasp deploy -i "$DEPLOYMENT_ID" -V "$AKTIF" -d "Rollback otomatis: Versi $BARU gagal cek kesehatan"
+          sehat && echo "✓ Kembali sehat di Versi $AKTIF" || echo "::error::Masih tidak sehat di Versi $AKTIF, periksa manual"
+          exit 1
+
+      - name: Hapus kunci akses
+        if: always()
+        run: rm -f ~/.clasprc.json
