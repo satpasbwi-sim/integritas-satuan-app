@@ -234,3 +234,12 @@ Folder `apps-script/` tidak masuk git (ada di .gitignore). Cadangan = folder itu
 - `apps-script/Panduan.gs` – isi sheet PANDUAN (jalankan `perbaruiPanduan` setelah mengubah teks).
 - `apps-script/Urutan.gs` – `bonusKonsisten_` (BONUS_KONSISTEN, KONSISTEN_MIN_HARI, KONSISTEN_PERSEN).
 - `web/app.js` – `cekPengingat`, pesan libur CW.
+
+## Pengaman otomatis (14 Nov 2026)
+- [x] Workflow deploy kini punya job **periksa** (`node --check` + buka aplikasi di Chromium, `.github/scripts/cek-aplikasi.mjs`);
+  gagal → deploy batal, situs tetap versi lama. Rollback aplikasi: Actions → Run workflow → isi **versi** (kode commit lama).
+- [x] `web/pengaman.js` (dimuat sebelum app.js): gagal mulai → buang data simpanan tampilan + muat ulang 1x, lalu layar
+  "Aplikasi gagal dibuka"; error sesudah berjalan → bilah "Muat ulang"; 10 error terakhir di `cw_err_log`. Cache `cw-pagi-v69`.
+- [x] README bagian "Pengaman otomatis & kembali ke versi sebelumnya" (rollback aplikasi & Apps Script tanpa AI).
+- [ ] Usulan lanjutan: kirim `cw_err_log` ke server (`action=logError` + sheet LOG ERROR, ikut email cek kesehatan).
+- [ ] Usulan lanjutan: cadangan kode Apps Script (`apps-script/`) di repo privat / Google Drive.
