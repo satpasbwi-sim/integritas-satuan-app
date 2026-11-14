@@ -247,3 +247,6 @@ Folder `apps-script/` tidak masuk git (ada di .gitignore). Cadangan = folder itu
     deploy Versi baru, jalankan `pasangPemicuErrorAplikasi` + `ujiErrorAplikasi` (README "Pengaman otomatis" bagian D).
 - [ ] **Cadangan kode Apps Script ke Drive** (`catatan-lanjutan/server/Cadangan.gs`) belum dipasang: aktifkan Apps Script API,
   tambah 2 cakupan di appsscript.json, jalankan `cadangkanKodeSekarang` lalu `pasangPemicuCadangan` (README bagian E).
+- [ ] **Deploy otomatis server (clasp)**: templat & panduan di `deploy-server/` (diuji dengan clasp/server tiruan, belum
+  dengan Apps Script sungguhan). Pemilik: buat repo privat `satpasbwi-sim/integritas-server`, ikuti `deploy-server/PANDUAN.md`.
+  Sesudah aktif, ErrorAplikasi.gs & Cadangan.gs bisa dipasang lewat repo itu (fungsi pasangPemicu… tetap dijalankan di editor).
