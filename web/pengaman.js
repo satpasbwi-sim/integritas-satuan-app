@@ -2,7 +2,8 @@
 // 1. Aplikasi gagal dibuka (error saat memulai) → data simpanan HP yang aman dibuang lalu dimuat ulang otomatis
 //    satu kali. Masih gagal → layar "Aplikasi gagal dibuka" dengan tombol Coba lagi.
 // 2. Error saat aplikasi sudah berjalan → bilah kecil "Terjadi gangguan · Muat ulang" (tidak menutup layar).
-// 3. Error terakhir dicatat di HP (localStorage cw_err_log, maks 10) untuk diperiksa operator.
+// 3. Error terakhir dicatat di HP (localStorage cw_err_log, maks 10) dan dikirim ke server (POST /exec?action=logError,
+//    sheet LOG ERROR APLIKASI; server: catatan-lanjutan/server/ErrorAplikasi.gs). Maks 20 kiriman per HP per hari.
 // Yang TIDAK pernah dihapus: ID HP, laporan tertunda (antrean), login NRP & kode admin.
 (function () {
   'use strict';
@@ -10,6 +11,7 @@
   const LOG = 'cw_err_log';
   const SIMPAN = ['cw_hp', 'cw_antre', 'cw_luar', 'cw_pin', 'cw_kode'];   // jangan dihapus
   const JEDA_ULANG_MS = 5 * 60 * 1000;   // pemulihan otomatis hanya sekali per 5 menit (cegah muat ulang berulang)
+  const KIRIM = 'cw_err_kirim', KIRIM_MAKS_HARI = 20;
   let siap = false;
   let bilahTampil = false;
 
@@ -24,10 +26,38 @@
   function catat(jenis, teks) {
     try {
       const log = JSON.parse(baca(LOG) || '[]');
-      log.push({ t: new Date().toISOString(), jenis, siap, teks, hal: location.pathname });
+      log.push({ t: new Date().toISOString(), jenis, siap, teks, hal: location.pathname, k: 0 });
       tulis(LOG, JSON.stringify(log.slice(-10)));
     } catch (e) { tulis(LOG, '[]'); }
   }
+
+  // kirim error yang belum terkirim ke server (tanpa menunggu jawaban; keepalive = tetap terkirim walau halaman dimuat ulang)
+  function kirim() {
+    try {
+      const api = window.CW_CONFIG && window.CW_CONFIG.API_URL;
+      if (!api || !window.fetch || navigator.onLine === false) return;
+      const log = JSON.parse(baca(LOG) || '[]');
+      const baru = log.filter((x) => x && x.k === 0);
+      if (!baru.length) return;
+      const hari = new Date().toDateString();
+      let n = { h: hari, n: 0 };
+      try { const m = JSON.parse(baca(KIRIM) || 'null'); if (m && m.h === hari) n = m; } catch (e) { /* data rusak */ }
+      if (n.n >= KIRIM_MAKS_HARI) return;
+      n.n++;
+      tulis(KIRIM, JSON.stringify(n));
+      baru.forEach((x) => { x.k = 1; });
+      tulis(LOG, JSON.stringify(log));
+      const body = JSON.stringify({
+        action: 'logError', hp: baca('cw_hp') || '', nrp: baca('cw_pin') || '', ua: navigator.userAgent,
+        err: baru.map((x) => ({ t: x.t, jenis: x.jenis, siap: x.siap, teks: x.teks, hal: x.hal }))
+      });
+      fetch(api + (api.indexOf('?') < 0 ? '?' : '&') + 'action=logError',
+        { method: 'POST', mode: 'no-cors', keepalive: body.length < 60000, headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body })
+        .catch(() => {});
+    } catch (e) { /* jangan sampai pengaman sendiri membuat error */ }
+  }
+  let jedaKirim = 0;
+  function kirimNanti() { clearTimeout(jedaKirim); jedaKirim = setTimeout(kirim, 2000); }
 
   // error yang bukan dari kode aplikasi / bukan kerusakan: diabaikan
   function abaikan(teks) {
@@ -72,6 +102,7 @@
 
   function gagalMulai(teks) {
     catat('gagal-mulai', teks);
+    kirim();
     let p = { n: 0, t: 0 };
     try { p = JSON.parse(baca(PULIH) || '{}') || p; } catch (e) { /* data rusak */ }
     if (!(p.n >= 1 && Date.now() - (p.t || 0) < JEDA_ULANG_MS)) {
@@ -104,6 +135,7 @@
     if (abaikan(teks)) return;
     if (!siap) { gagalMulai(teks); return; }
     catat('error', teks);
+    kirimNanti();
     bilahGangguan();
   }
 
@@ -130,6 +162,7 @@
   window.CW_PENGAMAN = {
     siap() {
       siap = true;
+      kirimNanti();   // termasuk error dari pembukaan sebelumnya (mis. sesudah layar "Coba lagi")
       // berjalan normal 15 detik → penghitung pemulihan otomatis dikosongkan
       setTimeout(() => { if (baca(PULIH)) tulis(PULIH, JSON.stringify({ n: 0, t: 0 })); }, 15000);
     },

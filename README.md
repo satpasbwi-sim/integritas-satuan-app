@@ -209,9 +209,8 @@ Dimuat sebelum `app.js`, sehingga tetap bekerja walau `app.js` rusak.
   Yang **tidak pernah** dihapus: ID HP (`cw_hp` + cadangan `cw-id`), laporan tertunda (`cw_antre`, `cw_luar`), login NRP dan kode admin.
 - **Error saat aplikasi sudah berjalan**: bilah merah kecil *"Terjadi gangguan pada aplikasi · Muat ulang"*;
   aplikasi tetap bisa dipakai.
-- 10 error terakhir disimpan di perangkat yang mengalaminya (localStorage `cw_err_log`). Di Chrome laptop:
-  F12 → Console → ketik `CW_PENGAMAN.log()`. Di HP anggota belum bisa dibaca langsung; mintalah tangkapan layar.
-  (Rencana lanjutan: error dikirim otomatis ke sheet LOG ERROR, perlu tambahan kecil di Apps Script.)
+- 10 error terakhir disimpan di HP (localStorage `cw_err_log`; di Chrome laptop: F12 → Console → `CW_PENGAMAN.log()`)
+  **dan dikirim ke server** → sheet **LOG ERROR APLIKASI** (lihat D). Maks 20 kiriman per HP per hari.
 
 ### C. Kembali ke versi sebelumnya (rollback)
 
@@ -231,6 +230,37 @@ di halaman commit itu → **⋯ → Revert** (GitHub Desktop: klik kanan commit 
    URL `/exec` tidak berubah, aplikasi langsung memakai versi itu.
 3. Kode di editor **tidak** ikut kembali. Jangan *Deployment baru* dari editor sebelum kodenya diperbaiki,
    atau salin isi file dari cadangan (`apps-script/` di laptop).
+
+### D. Error dari HP anggota sampai ke operator (`ErrorAplikasi.gs`)
+Salinan: `catatan-lanjutan/server/ErrorAplikasi.gs`. Server mencatat setiap error kiriman `pengaman.js` di sheet
+**LOG ERROR APLIKASI** (waktu, jenis, pesan, NRP, ID HP, saat membuka / sedang dipakai, browser; maks 3000 baris).
+- **Email segera** bila ≥ 5 HP berbeda gagal membuka aplikasi dalam 30 menit (tanda versi baru rusak → rollback, bagian C).
+  Paling sering 1 email per 3 jam.
+- **Email ringkasan harian ±19.30** (pemicu `kabarErrorAplikasi`): error baru dikelompokkan per pesan, berapa kali,
+  berapa HP. Tidak ada error = tidak ada email.
+- Pasang sekali:
+  1. Tempel sebagai file baru **ErrorAplikasi.gs**.
+  2. Di **Code.gs**, baris pertama di dalam `function doPost(e) {` tambahkan:
+     `if (e && e.parameter && e.parameter.action === 'logError') return terimaErrorAplikasi_(e);`
+  3. **Terapkan → Kelola deployment → Versi baru** (URL `/exec` tetap).
+  4. Jalankan `pasangPemicuErrorAplikasi` sekali. Uji: `ujiErrorAplikasi` (menulis 1 baris contoh, boleh dihapus).
+- Sebelum langkah 2 diterapkan, kiriman dari HP hanya ditolak server biasa dan tidak dicatat (aman).
+
+### E. Cadangan kode Apps Script otomatis (`Cadangan.gs`)
+Kode server (folder `apps-script/`) tidak di-push ke GitHub (repo publik, memuat NRP admin). `Cadangan.gs` menyalin
+**semua file proyek Apps Script** setiap hari ±02.00 ke Google Drive akun satuan: folder
+**"Cadangan Kode Apps Script CW Pagi" / `<tanggal jam>`** (satu file per .gs + `appsscript.json` + `DEPLOYMENT.txt`
+berisi versi deployment yang aktif). Hanya bila kode berubah; disimpan 60 cadangan terakhir. **Jangan bagikan folder ini.**
+- Pasang sekali:
+  1. https://script.google.com/home/usersettings (akun pemilik) → **Google Apps Script API → Aktif**.
+  2. Tempel sebagai file baru **Cadangan.gs** (salinan di `catatan-lanjutan/server/`).
+  3. `appsscript.json`, di `oauthScopes` tambahkan
+     `"https://www.googleapis.com/auth/script.projects.readonly"` dan `"https://www.googleapis.com/auth/script.deployments.readonly"`.
+  4. Jalankan `cadangkanKodeSekarang` → izinkan (Pilih semua) → cek folder di Drive. Lalu jalankan `pasangPemicuCadangan`.
+     Tidak perlu deploy baru.
+- Gagal → email lewat `laporGagal_` (Notifikasi.gs). Pesan "Gagal membaca kode (403)" = langkah 1 atau 3 belum.
+- Memulihkan satu file: buka cadangan tanggal yang diinginkan → salin isi file → tempel ke file bernama sama di editor
+  → simpan → Terapkan → Kelola deployment → Versi baru.
 
 **Aturan sederhana agar jarang rusak:** ubah satu hal per kali; setelah push/deploy, buka aplikasi di HP dan coba
 satu kali login + satu menu; bila aneh, langsung rollback (bagian C) lalu cari penyebabnya dengan tenang.
