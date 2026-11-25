@@ -30,6 +30,39 @@ Tidak berisi kata sandi atau kode rahasia.
 | Aplikasi (GitHub Pages) | Commit `76fba4d`, cache service worker `cw-pagi-v39`. | GitHub |
 
 ## BELUM DIKERJAKAN / BELUM DIUJI
+- 25 Nov 2026: **Perbaikan bug prioritas tinggi & sedang diterapkan** (Apps Script **Versi 71** & **Versi 72** terpasang,
+  `/exec?action=jam` terverifikasi; aplikasi GitHub Pages cache `cw-pagi-v72`, commit `c16daa4`).
+  - **Prioritas tinggi (Versi 71 + `cw-pagi-v71`):** antrean offline PHL & tanpa plotting (`adaAntre()` tanpa syarat `me`),
+    jam & auto-reload PWA lintas tengah malam (`sinkronJam`, `menitSekarang` mod 1440, `cekGantiHari`), Rekap Cetak Ceklok
+    memakai `ceklokHari_` agar izin admin `IZIN DINAS SATPAS` tidak tercatat `TK` (`RekapCetak.gs`), `LockService` + tulis-sebelum-hapus
+    di `catatNilaiApp_()` (`NilaiAplikasi.gs`), serta pengamanan foto bukti ⚠️ / CEK FOTO ke subfolder `Bukti Pelanggaran`
+    saat `gantiBulan_()` / `arsipLogLapor_()` / `hapusFotoLama()` (`Code.gs`, `GantiBulan.gs`). Cadangan: `apps-script/cadangan-sebelum-perbaikan-prioritas/`.
+  - **Prioritas sedang (Versi 72 + `cw-pagi-v72`):** `PEMBINAAN_MIN_HARI` aktif lewat kolom ke-18 `HARI DINILAI` di
+    `RIWAYAT INTEGRITAS MINGGUAN` + fallback parse `CATATAN` & cache `pembinaan_v2` (`IntegritasMingguan.gs`, `Pembinaan.gs`),
+    `bukaPulangCk()` memakai `c.pulang - 30` untuk `CEKLOK_KHUSUS` (`web/app.js`), `getCatatan_`/`saveCatatan_` isolasi per `yyyy-MM`
+    zona waktu spreadsheet (`Code.gs`), penghindaran timeout `gantiBulan_()` via `selesaiGantiBulan()` (`GantiBulan.gs`),
+    pemantauan 5 pemicu di `PEMICU_HARIAN` (`Notifikasi.gs`), `tanpaCatat` di rantai reset + pembersihan `PERSETUJUAN` & `LUAR RADIUS`
+    uji coba (`ResetUjiCoba.gs`, `Code.gs`), serta normalisasi `nrp` di `ceklokHari_()`. Cadangan: `apps-script/cadangan-sebelum-prioritas-sedang/`.
+- 13 Nov 2026: **Waktu Habis pemicu diperbaiki** (editor/Head, tersimpan; tanpa deploy baru karena pemicu memakai Head;
+  Web App Versi 70 tidak berubah). Masalah: hitungIntegritasSore ±15.15 Waktu Habis 8, 9, 11, 13 Nov; hitungDurasiPoin
+  8 Nov; rekapHarianBerkala 7 Nov (biasanya ±280 dtk); resetUjiCoba 6 Nov (memanggil hitungan pagi/sore).
+  1. **Rantai pemicu** (Code.gs, `RANTAI`): tiap pekerjaan berat dipecah per tahap, tiap tahap eksekusi sendiri lewat pemicu
+     sekali-jalan (jeda 20 dtk; pemicu cadangan 7 mnt dipasang sebelum tahap mulai, jadi rantai tetap lanjut bila satu tahap
+     habis waktu). Status: Script Properties `rantai|<nama>`; log "rantai <nama> tahap i/n (...)".
+     - pagi = hitungDurasiPoin (pemicu, menu, reset uji coba): durasi → satpas → cw → mingguanSatpas (+RIWAYAT bila kemarin
+       Minggu) → mingguanCw → harianSatpas → harianCw. Pemicu lanjutan `lanjutDurasiPoin`.
+     - sore = hitungIntegritasSore: satpas → cw → mingguanSatpas → mingguanCw (`lanjutIntegritasSore`).
+     - berkala = rekapHarianBerkala: harianSatpas (+sheet INTEGRITAS HARIAN) → harianCw (`lanjutRekapBerkala`;
+       IntegritasHarian.gs `rekapHarianBerkalaBagian_`, `hitungIntegritasHarian` kini menerima `ekstra.bagian`).
+     - Ganti Bulan memakai `hitungDurasiPoinLangsung` (semua dalam satu eksekusi, GantiBulan.gs).
+  2. **Akar lambat**: `ceklokHari_` menyisir seluruh LOG CEKLOK + `Utilities.formatDate` per baris untuk tiap anggota × hari.
+     Kini `indeksCeklok_` (indeks tanggal|NRP sekali per array baris). Uji kesetaraan Node 75 kasus 0 beda. Bagian ceklok
+     tahap mingguan 11 dtk → 1 dtk (sebelumnya pernah 228 dtk saat layanan Google lambat).
+  Uji 13 Nov: berkala 28+28 dtk; pagi 9/47/63/259*/18/25/17 dtk (*sebelum indeks); mingguanSatpas lewat pemicu sesudah
+  indeks 20 dtk. Diagnosis tetap terpasang: `ukur_` + "rincian per anggota" di hitungIntegritasSatpas, `ujiTahapRantai` /
+  `ujiTahapLewatPemicu` (sekarang: pagi tahap 4). Teks menu Hitung ulang (RekapCetak.gs) disesuaikan.
+  Cadangan: `apps-script/cadangan-sebelum-sore-berantai/`, `apps-script/cadangan-sebelum-rantai-pagi-berkala/`.
+  - [ ] Pantau tingkat error di halaman Pemicu beberapa hari (angka lama masih terbawa: sore 57%, pagi & berkala 14%).
 - 7 Nov 2026: pemicu `rekapMingguanMinggu` (Minggu ±00.00, IntegritasMingguan.gs) terpasang; rekap mingguan final dirilis Minggu.
 - 7 Nov 2026: **Versi 70** diterapkan (05.42): Lapor CW dikunci pada hari izin/dinas (laporan Tidak hadir sendiri atau kode
   S/I/C/D/P/LD/- admin di ABSENSI, baris milik sendiri), Ceklok dikunci + dinilai izin sah dari sheet IZIN DINAS SATPAS
