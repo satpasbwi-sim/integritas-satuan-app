@@ -11,6 +11,7 @@
   let kode = load('cw_kode');   // kode admin (kedua setelah NRP) untuk membuka Rekap
   let mintaAdmin = false;
   let data = null;          // respons terakhir dari API
+  let dataTgl = '';         // tanggal lokal (tglLokal) saat data dimuat, untuk auto-reload lintas hari
   let edits = {};           // row -> kode yang belum disimpan
   let noteEdits = {};       // no plotting -> catatan yang belum disimpan
   const openNote = {};      // no plotting -> kolom catatan dibuka manual
@@ -1071,6 +1072,7 @@
         throw new Error(d.error);
       }
       data = d;
+      dataTgl = tglLokal();
       if (!day || day === d.today) simpanCache(d);
       if (d.now != null) jamSync = { now: d.now, at: Date.now() };
       if (d.serverMs) aturJam(d.serverMs, d.jamTanda, performance.now());
@@ -1328,7 +1330,7 @@
   function ulangBtn() {
     return data && data.bebasWaktu ? '<div class="switch" style="margin-top:14px"><button class="btn" data-a="ulangi">🔁 Ulangi (uji coba)</button></div>' : '';
   }
-  function adaAntre() { return data && me && antreSaya().length > 0; }
+  function adaAntre() { return !!data && antreSaya().length > 0; }
   function antreHtml() {
     let h = '';
     if (adaAntre()) {
@@ -1530,7 +1532,7 @@
         // separuh waktu perjalanan ditambahkan; data lengkap yang tiba belakangan tetap menimpa
         const perf = performance.now();
         aturJam(d.serverMs + (perf - t0) / 2, d.jamTanda, perf);
-        if (d.now != null && jamSync.now == null) jamSync = { now: d.now + (perf - t0) / 120000, at: Date.now() };
+        if (d.now != null) jamSync = { now: d.now + (perf - t0) / 120000, at: Date.now() };
       }).catch(() => {}).finally(() => { jamJalan = null; });
     }
     return jamJalan;
@@ -1538,7 +1540,8 @@
   let lastFase = '';
   function menitSekarang() {
     if (jamSync.now == null) { const d = new Date(); return d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60; }
-    return jamSync.now + (Date.now() - jamSync.at) / 60000;
+    const m = jamSync.now + (Date.now() - jamSync.at) / 60000;
+    return ((m % 1440) + 1440) % 1440;
   }
   // sapaan di atas nama (jam server): pagi < 11.00, siang < 15.00, sore < 18.00, lalu malam
   function salamHtml() {
@@ -2125,6 +2128,19 @@
     });
   }
 
+  // aplikasi dibiarkan terbuka melewati tengah malam: muat ulang otomatis saat tanggal berganti
+  let reloadHariAt = 0;
+  function cekGantiHari(paksa) {
+    if (!data || !dataTgl || dataTgl === tglLokal() || !navigator.onLine || dirtyCount() || sending || memuat) return false;
+    if (!paksa && Date.now() - reloadHariAt < 120000) return false;
+    reloadHariAt = Date.now();
+    const qLama = bacaAntre();
+    if (qLama.some((x) => x.tgl !== tglLokal())) tulisAntre(qLama.filter((x) => x.tgl === tglLokal()));
+    ulangCW = false; ulangCk = false;
+    reload();
+    return true;
+  }
+
   // aplikasi disembunyikan (layar mati / pindah aplikasi): hentikan pantauan, lanjutkan saat dibuka lagi
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) { hentikanGps(); luar = null; sampelGps = []; }
@@ -2132,7 +2148,7 @@
       // HP sempat tidur: performance.now() bisa tertinggal, jam server disinkronkan lagi bila ada sinyal
       if (navigator.onLine) sinkronJam();
       kirimLuar();
-      if (data && (mode === 'lapor' && myRow() || mode === 'ceklok' && data.ceklok || wajibDipantau())) ambilLokasi();
+      if (!cekGantiHari(true) && data && (mode === 'lapor' && myRow() || mode === 'ceklok' && data.ceklok || wajibDipantau())) ambilLokasi();
       kirimAntre();
     }
   });
@@ -2673,6 +2689,7 @@
   let detak = 0;
   setInterval(() => {
     if (!data || $('app').hidden || sending || document.hidden) return;
+    if (cekGantiHari(false)) return;
     if (adaAntre()) kirimAntre();
     if (mode === 'ceklok' && data.ceklok) {
       const f = ckFase();
@@ -2753,6 +2770,7 @@
     store('cw_pembinaan_d', '');
     store('cw_pantauan_d', '');
     data = null;
+    dataTgl = '';
     nilai = null; nilaiAt = 0;
     rekap = null; rekapAt = 0;
     pemb = null; pembAt = 0;
@@ -2892,6 +2910,7 @@
     mode = load('cw_mode') === 'ceklok' && (!c || c.ceklok) ? 'ceklok' : 'lapor';
     if (c) {
       data = c;
+      dataTgl = tglLokal();
       me = c.me ? String(c.me) : '';
       if (c.ceklok && !c.me) mode = 'ceklok';
       if (c.pengawas) mode = 'rekapInt';

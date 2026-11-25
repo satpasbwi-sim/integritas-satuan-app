@@ -6,7 +6,7 @@
  *   kelompok 'satpas' : anggota Satpas, dari PENILAIAN INTEGRITAS (6 unsur) – Code.gs hitungIntegritasSatpas
  *   kelompok 'cw'     : personel CW Pagi, dari PENILAIAN CW (5 unsur) – PenilaianCw.gs hitungPenilaianCw
  *   jenis 'harian' (hari terakhir yang dinilai) · 'mingguan' (Senin–Minggu berjalan) · 'bulanan' (bulan ABSENSI)
- *   jenis 'mingguan_final' / 'bulanan_final' : salinan saat periodenya sudah lewat (minggu: Senin pagi sesudahnya,
+ *   jenis 'mingguan_final' / 'bulanan_final' : salinan saat periodenya sudah lewat (minggu: Minggu ±00.00,
  *   bulan: hitungan pertama sesudah akhir bulan / Ganti Bulan). Aplikasi hanya menampilkan mingguan & bulanan yang final.
  * Hanya periode yang sama atau lebih baru yang menimpa (menu untuk tanggal / minggu lama tidak mengubah tampilan),
  * dan perhitungan tanpa hari yang dinilai (mis. sesudah reset uji coba) tidak menimpa.
@@ -83,8 +83,6 @@ function catatNilaiApp_(jenis, kelompok, hasil, info) {
   const ss = SpreadsheetApp.getActive();
   const tz = ss.getSpreadsheetTimeZone();
   const hariIni = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
-  const sh = sheetNilaiApp_();
-  let semua = sh.getLastRow() >= 2 ? sh.getRange(2, 1, sh.getLastRow() - 1, NILAI_APP_HEADER.length).getValues() : [];
   const dinilai = hasil.filter(function (h) { return h.skor !== ''; });
   const stempel = Utilities.formatDate(new Date(), tz, 'dd/MM/yyyy HH.mm');
   const ktx = jenis === 'harian' ? konteksHarianApp_(info.sampai, info.berkala) : null;
@@ -104,19 +102,43 @@ function catatNilaiApp_(jenis, kelompok, hasil, info) {
         JSON.stringify(unsur), JSON.stringify(catatan), stempel, JSON.stringify(detail)];
     });
   };
-  // ganti satu grup (jenis + kelompok), kecuali yang tersimpan periodenya lebih baru
-  const ganti = function (j) {
-    const lama = semua.filter(function (r) { return r[0] === j && r[1] === kelompok; });
-    if (lama.length && String(lama[0][3]) > info.sampai) return false;
-    semua = semua.filter(function (r) { return !(r[0] === j && r[1] === kelompok); }).concat(baris(j));
-    return true;
-  };
-  let n = ganti(jenis) ? dinilai.length : 0;
-  // periode sudah lewat seluruhnya = final (mingguan / bulanan yang boleh dilihat di aplikasi)
-  if (jenis !== 'harian' && info.selesai && info.selesai < hariIni) ganti(jenis + '_final');
-  if (sh.getLastRow() >= 2) sh.getRange(2, 1, sh.getLastRow() - 1, NILAI_APP_HEADER.length).clearContent();
-  if (semua.length) sh.getRange(2, 1, semua.length, NILAI_APP_HEADER.length).setValues(semua);
-  return n;
+  const hariMinggu = function (t) { const p = String(t).split('-').map(Number); return new Date(p[0], p[1] - 1, p[2], 12).getDay() === 0; };
+  const nCol = NILAI_APP_HEADER.length;
+
+  // kunci penulisan agar dua rantai yang berdekatan (sore ±15.15 & berkala ±15.30) tidak saling menimpa
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const sh = sheetNilaiApp_();
+    const lamaBaris = Math.max(sh.getLastRow() - 1, 0);
+    let semua = lamaBaris > 0 ? sh.getRange(2, 1, lamaBaris, nCol).getValues() : [];
+    // ganti satu grup (jenis + kelompok), kecuali yang tersimpan periodenya lebih baru
+    const ganti = function (j) {
+      const lama = semua.filter(function (r) { return r[0] === j && r[1] === kelompok; });
+      if (lama.length && String(lama[0][3]) > info.sampai) return false;
+      // hasil tanpa satu pun orang dinilai (mis. minggu lintas bulan dihitung sesudah Ganti Bulan: hari bulan lama sudah
+      // diarsip) tidak menimpa nilai yang sudah ada (kasus mingguan 26 Okt–1 Nov 2026)
+      if (lama.length && !dinilai.length) return false;
+      semua = semua.filter(function (r) { return !(r[0] === j && r[1] === kelompok); }).concat(baris(j));
+      return true;
+    };
+    const ubah1 = ganti(jenis);
+    let ubah2 = false;
+    // periode sudah lewat seluruhnya = final (mingguan / bulanan yang boleh dilihat di aplikasi). Mingguan sudah final
+    // pada hari Minggunya (rekapMingguanMinggu ±00.00): Minggu tidak ada Lapor CW / Ceklok
+    if (jenis !== 'harian' && info.selesai && (info.selesai < hariIni || jenis === 'mingguan' && info.selesai === hariIni && hariMinggu(hariIni))) {
+      ubah2 = ganti(jenis + '_final');
+    }
+    if (ubah1 || ubah2) {
+      // tulis nilai baru dulu sebelum menghapus sisa baris lebih, agar pembaca bersamaan tidak pernah melihat sheet kosong
+      if (semua.length) sh.getRange(2, 1, semua.length, nCol).setValues(semua);
+      if (lamaBaris > semua.length) sh.getRange(2 + semua.length, 1, lamaBaris - semua.length, nCol).clearContent();
+      SpreadsheetApp.flush();
+    }
+    return ubah1 ? dinilai.length : 0;
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function bacaNilaiApp_() {
