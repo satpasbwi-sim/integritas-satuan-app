@@ -1347,8 +1347,9 @@
   function radius() { return data.radius || 100; }
   function cekJarak(t) { return !t || t.dist == null ? ' <span class="badge k">jarak belum dicek</span>' : ''; }
   function tautan(t) {
-    return (t.peta ? ' · <a href="' + esc(t.peta) + '" target="_blank" rel="noopener">peta</a>' : '') +
-      (t.foto ? ' · <a href="' + esc(t.foto) + '" target="_blank" rel="noopener">📷</a>' : '');
+    const ok = (u) => /^https:\/\//.test(String(u || ''));
+    return (ok(t.peta) ? ' · <a href="' + esc(t.peta) + '" target="_blank" rel="noopener">peta</a>' : '') +
+      (ok(t.foto) ? ' · <a href="' + esc(t.foto) + '" target="_blank" rel="noopener">📷</a>' : '');
   }
   function laporInfo(r) {
     const l = laporOf(r);
@@ -1603,13 +1604,15 @@
     const v = $('laporView');
     if (!data.today) {
       v.innerHTML = '<section class="card"><h2 class="t">Lapor belum dibuka</h2>' +
-        '<p class="sub">Spreadsheet yang terhubung bukan untuk bulan berjalan. Hubungi admin.</p></section>';
+        '<p class="sub">Spreadsheet yang terhubung bukan untuk bulan berjalan. Hubungi admin.</p>' +
+        '<div class="switch" style="margin-top:14px">' + gantiBtn() + '</div></section>';
       return;
     }
     if (data.cwLibur) {
       v.innerHTML = '<section class="card"><h2 class="t">Hari ini libur CW Pagi</h2>' +
         '<p class="sub">CW Pagi hanya Senin–Jumat, jadi Sabtu dan Minggu tidak perlu lapor dan tidak dinilai.' +
-        (data.ceklok ? ' Absen dinas kantor tetap lewat tab <b>Ceklok Satpas</b>.' : '') + '</p></section>';
+        (data.ceklok ? ' Absen dinas kantor tetap lewat tab <b>Ceklok Satpas</b>.' : '') + '</p>' +
+        '<div class="switch" style="margin-top:14px">' + gantiBtn() + '</div></section>';
       return;
     }
     const r = myRow();
@@ -1900,10 +1903,13 @@
     tulis();
     const timer = setInterval(tulis, 500);
     const tutup = () => {
+      document.removeEventListener('visibilitychange', onHide);
       clearInterval(timer); clearTimeout(tungguStabil);
       stream.getTracks().forEach((t) => t.stop()); el.remove();
       try { screen.orientation.unlock(); } catch (e) { /* tidak didukung */ }
     };
+    const onHide = () => { if (document.hidden) tutup(); };
+    document.addEventListener('visibilitychange', onHide);
     el.addEventListener('click', (e) => {
       const b = e.target.closest('[data-k]');
       if (!b) return;
