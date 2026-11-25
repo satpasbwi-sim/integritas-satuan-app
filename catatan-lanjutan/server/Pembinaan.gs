@@ -21,19 +21,21 @@ const PEMBINAAN_KOLOM = {
 // unsur penilaian (BOBOT_INTEGRITAS); dipakai untuk "unsur paling turun" bila kolomnya ada di RIWAYAT
 const PEMBINAAN_UNSUR = ['Kehadiran CW', 'Ceklok Satpas', 'Kejujuran lokasi', 'Ketepatan waktu', 'Kelengkapan lapor', 'Durasi tugas'];
 
+const PEMBINAAN_CACHE_KUNCI = 'pembinaan_v2';
+
 // Dipanggil dari doGet untuk action=pembinaan (setelah cek pengawas / admin, sama seperti action=rekap).
 function pembinaanData_() {
   const cache = CacheService.getScriptCache();
-  const simpan = cache.get('pembinaan_v1');
+  const simpan = cache.get(PEMBINAAN_CACHE_KUNCI);
   if (simpan) return JSON.parse(simpan);
   const sh = SpreadsheetApp.openById(SATPAS_SS_ID).getSheetByName(PEMBINAAN_SHEET);
-  if (!sh) return { error: 'Sheet ' + PEMBINAAN_SHEET + ' belum ada. Nilai mingguan final disimpan tiap Senin pagi.' };
+  if (!sh) return { error: 'Sheet ' + PEMBINAAN_SHEET + ' belum ada. Nilai mingguan final disimpan tiap Minggu ±00.00.' };
   const nilai = sh.getDataRange().getValues();
   const baris = bacaRiwayatPembinaan_(nilai);
   if (baris.error) return baris;
   const hasil = hitungPembinaan_(baris);
   hasil.diperbarui = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM HH.mm');
-  try { cache.put('pembinaan_v1', JSON.stringify(hasil), PEMBINAAN_CACHE_DETIK); } catch (e) { /* terlalu besar: abaikan */ }
+  try { cache.put(PEMBINAAN_CACHE_KUNCI, JSON.stringify(hasil), PEMBINAAN_CACHE_DETIK); } catch (e) { /* terlalu besar: abaikan */ }
   return hasil;
 }
 
@@ -71,13 +73,20 @@ function bacaRiwayatPembinaan_(nilai) {
     if (!nrp || !senin || skor == null) continue;
     const unsur = {};
     Object.keys(kUnsur).forEach((u) => { const x = angkaPembinaan_(v[kUnsur[u]]); if (x != null) unsur[u] = x; });
+    const catatanTeks = k.catatan >= 0 ? String(v[k.catatan] || '') : '';
+    let hari = k.hari >= 0 ? angkaPembinaan_(v[k.hari]) : null;
+    // cadangan untuk baris riwayat lama sebelum kolom HARI DINILAI ditambahkan: baca dari "urutan: x/y hari sempurna"
+    if (hari == null && catatanTeks) {
+      const mHari = /urutan:\s*\d+\/(\d+)\s+hari sempurna/i.exec(catatanTeks);
+      if (mHari) hari = Number(mHari[1]);
+    }
     out.push({
       nrp, senin, skor, unsur,
       nama: k.nama >= 0 ? String(v[k.nama] || '').trim() : nrp,
       pokja: k.pokja >= 0 ? String(v[k.pokja] || '').trim() : '',
       predikat: k.predikat >= 0 ? String(v[k.predikat] || '').trim() : '',
-      hari: k.hari >= 0 ? angkaPembinaan_(v[k.hari]) : null,
-      catatan: k.catatan >= 0 ? String(v[k.catatan] || '').split(/\n|;\s*/).map((c) => c.trim()).filter(Boolean) : []
+      hari: hari,
+      catatan: catatanTeks ? catatanTeks.split(/\n|;\s*/).map((c) => c.trim()).filter(Boolean) : []
     });
   }
   return out;
@@ -151,6 +160,6 @@ function selisihHariPembinaan_(a, b) {
 
 // Jalankan dari editor Apps Script untuk melihat hasil di Log (Lihat → Log eksekusi).
 function ujiPembinaan() {
-  CacheService.getScriptCache().remove('pembinaan_v1');
+  CacheService.getScriptCache().remove(PEMBINAAN_CACHE_KUNCI);
   Logger.log(JSON.stringify(pembinaanData_(), null, 2));
 }

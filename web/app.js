@@ -2257,11 +2257,12 @@
     if (!bebas && m > c.tutup) return 'tutup';
     return 'masuk';
   }
-  // Ceklok Pulang (tombol & pengingat) baru tampil mulai pukul 12.30 Senin–Kamis, 11.30 Jumat–Sabtu (hari dari jam server)
+  // Ceklok Pulang (tombol & pengingat) baru tampil 30 menit sebelum jam pulang dinas (c.pulang dari server, ikut CEKLOK_KHUSUS)
   const PULANG_BUKA = { 1: 750, 2: 750, 3: 750, 4: 750, 5: 690, 6: 690 };
   function bukaPulangCk() {
     if (data.bebasWaktu) return null;
-    const b = PULANG_BUKA[new Date(serverNowMs() || Date.now()).getDay()];
+    const c = data.ceklok || {};
+    const b = c.pulang != null ? c.pulang - 30 : PULANG_BUKA[new Date(serverNowMs() || Date.now()).getDay()];
     return b != null && menitSekarang() < b ? b : null;
   }
   function okLokasiCk() { const c = data.ceklok; return data.bebasWaktu || (draft.lat != null && (c.bebasLokasi || jarakM(draft, c) <= c.radius)); }
