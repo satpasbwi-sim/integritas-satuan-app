@@ -1,0 +1,5 @@
+# kunci akses clasp: JANGAN di-commit
+.clasprc.json
+node_modules/
+.DS_Store
+Thumbs.db

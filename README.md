@@ -187,6 +187,90 @@ Catatan proyek Apps Script:
   Jika menambah layanan Google baru di kode, tambahkan juga cakupannya di sini.
 - Ada fungsi `izinkanAkses` untuk dijalankan sekali bila izin Drive perlu diberikan ulang.
 
+## Pengaman otomatis & kembali ke versi sebelumnya
+
+Bagian ini untuk operator **tanpa** bantuan AI/programmer. Aplikasi tidak bisa memperbaiki kodenya sendiri, tetapi
+ada tiga pengaman supaya kesalahan tidak sampai ke HP anggota, dan bila tetap terjadi bisa dikembalikan dalam 2 menit.
+
+### A. Pemeriksaan sebelum tayang (otomatis, GitHub Actions)
+Setiap push ke `main`, workflow **Deploy ke GitHub Pages** menjalankan job **periksa** dulu:
+1. penulisan kode semua `web/*.js` (salah ketik, kurung kurang);
+2. semua file yang dipakai `index.html` dan `sw.js` ada, `manifest.json` benar;
+3. aplikasi dibuka di browser uji (layar login dan sesudah login) tanpa error JavaScript.
+   Server Apps Script asli **tidak** dihubungi (jawaban tiruan). Skrip: `.github/scripts/cek-aplikasi.mjs`.
+
+Bila salah satu gagal: tanda ❌ merah di tab **Actions**, **deploy dibatalkan**, situs tetap versi lama yang sehat,
+dan email cek kesehatan (Notifikasi.gs) melaporkan deploy gagal. Perbaiki kodenya atau batalkan perubahan (bagian C).
+
+### B. Pemulihan di HP (otomatis, `web/pengaman.js`)
+Dimuat sebelum `app.js`, sehingga tetap bekerja walau `app.js` rusak.
+- **Aplikasi gagal dibuka** (error saat memulai, mis. data simpanan HP rusak): data simpanan tampilan dibuang lalu
+  aplikasi dimuat ulang otomatis **satu kali**. Masih gagal → layar *"Aplikasi gagal dibuka"* dengan tombol **Coba lagi**.
+  Yang **tidak pernah** dihapus: ID HP (`cw_hp` + cadangan `cw-id`), laporan tertunda (`cw_antre`, `cw_luar`), login NRP dan kode admin.
+- **Error saat aplikasi sudah berjalan**: bilah merah kecil *"Terjadi gangguan pada aplikasi · Muat ulang"*;
+  aplikasi tetap bisa dipakai.
+- 10 error terakhir disimpan di HP (localStorage `cw_err_log`; di Chrome laptop: F12 → Console → `CW_PENGAMAN.log()`)
+  **dan dikirim ke server** → sheet **LOG ERROR APLIKASI** (lihat D). Maks 20 kiriman per HP per hari.
+
+### C. Kembali ke versi sebelumnya (rollback)
+
+**Aplikasi (tampilan, folder `web/`) – cara tercepat, tanpa mengubah kode:**
+1. Buka github.com → repo **integritas-satuan-app** → tab **Commits** (atau `…/commits/main`).
+   Cari commit terakhir **sebelum** masalah muncul (lihat tanggal & judulnya), klik ikon salin di sebelah kode commit
+   (mis. `4bb270a`).
+2. Tab **Actions** → **Deploy ke GitHub Pages** → tombol **Run workflow** → isi **versi** dengan kode tadi → **Run workflow**.
+3. Tunggu ±3 menit sampai hijau. Di HP: tutup aplikasi sepenuhnya lalu buka lagi.
+
+Catatan: push berikutnya ke `main` menayangkan lagi versi terbaru. Supaya permanen, batalkan commit yang bermasalah:
+di halaman commit itu → **⋯ → Revert** (GitHub Desktop: klik kanan commit → *Revert changes in commit*) → push.
+
+**Server (Apps Script):** setiap deploy tersimpan sebagai versi (Versi 70, 69, …).
+1. Spreadsheet → **Extensions → Apps Script** → **Terapkan → Kelola deployment**.
+2. Ikon pensil pada deployment aktif → **Versi** → pilih versi sebelumnya yang sehat → **Terapkan**.
+   URL `/exec` tidak berubah, aplikasi langsung memakai versi itu.
+3. Kode di editor **tidak** ikut kembali. Jangan *Deployment baru* dari editor sebelum kodenya diperbaiki,
+   atau salin isi file dari cadangan (`apps-script/` di laptop).
+
+### D. Error dari HP anggota sampai ke operator (`ErrorAplikasi.gs`)
+Salinan: `catatan-lanjutan/server/ErrorAplikasi.gs`. Server mencatat setiap error kiriman `pengaman.js` di sheet
+**LOG ERROR APLIKASI** (waktu, jenis, pesan, NRP, ID HP, saat membuka / sedang dipakai, browser; maks 3000 baris).
+- **Email segera** bila ≥ 5 HP berbeda gagal membuka aplikasi dalam 30 menit (tanda versi baru rusak → rollback, bagian C).
+  Paling sering 1 email per 3 jam.
+- **Email ringkasan harian ±19.30** (pemicu `kabarErrorAplikasi`): error baru dikelompokkan per pesan, berapa kali,
+  berapa HP. Tidak ada error = tidak ada email.
+- Pasang sekali:
+  1. Tempel sebagai file baru **ErrorAplikasi.gs**.
+  2. Di **Code.gs**, baris pertama di dalam `function doPost(e) {` tambahkan:
+     `if (e && e.parameter && e.parameter.action === 'logError') return terimaErrorAplikasi_(e);`
+  3. **Terapkan → Kelola deployment → Versi baru** (URL `/exec` tetap).
+  4. Jalankan `pasangPemicuErrorAplikasi` sekali. Uji: `ujiErrorAplikasi` (menulis 1 baris contoh, boleh dihapus).
+- Sebelum langkah 2 diterapkan, kiriman dari HP hanya ditolak server biasa dan tidak dicatat (aman).
+
+### E. Cadangan kode Apps Script otomatis (`Cadangan.gs`)
+Kode server (folder `apps-script/`) tidak di-push ke GitHub (repo publik, memuat NRP admin). `Cadangan.gs` menyalin
+**semua file proyek Apps Script** setiap hari ±02.00 ke Google Drive akun satuan: folder
+**"Cadangan Kode Apps Script CW Pagi" / `<tanggal jam>`** (satu file per .gs + `appsscript.json` + `DEPLOYMENT.txt`
+berisi versi deployment yang aktif). Hanya bila kode berubah; disimpan 60 cadangan terakhir. **Jangan bagikan folder ini.**
+- Pasang sekali:
+  1. https://script.google.com/home/usersettings (akun pemilik) → **Google Apps Script API → Aktif**.
+  2. Tempel sebagai file baru **Cadangan.gs** (salinan di `catatan-lanjutan/server/`).
+  3. `appsscript.json`, di `oauthScopes` tambahkan
+     `"https://www.googleapis.com/auth/script.projects.readonly"` dan `"https://www.googleapis.com/auth/script.deployments.readonly"`.
+  4. Jalankan `cadangkanKodeSekarang` → izinkan (Pilih semua) → cek folder di Drive. Lalu jalankan `pasangPemicuCadangan`.
+     Tidak perlu deploy baru.
+- Gagal → email lewat `laporGagal_` (Notifikasi.gs). Pesan "Gagal membaca kode (403)" = langkah 1 atau 3 belum.
+- Memulihkan satu file: buka cadangan tanggal yang diinginkan → salin isi file → tempel ke file bernama sama di editor
+  → simpan → Terapkan → Kelola deployment → Versi baru.
+
+### F. Deploy otomatis kode server (clasp, opsional)
+Panduan: `deploy-server/PANDUAN.md`. Kode Apps Script dipindah ke repo GitHub **privat** `integritas-server`; setiap push
+GitHub mengirim kode dan membuat Versi baru pada `/exec` yang sama, dengan pemeriksaan kode, penjaga ubahan di editor,
+cek kesehatan sesudah deploy dan **rollback otomatis**. Sesudah terpasang, kode server tidak diubah lagi di editor.
+
+**Aturan sederhana agar jarang rusak:** ubah satu hal per kali; setelah push/deploy, buka aplikasi di HP dan coba
+satu kali login + satu menu; bila aneh, langsung rollback (bagian C) lalu cari penyebabnya dengan tenang.
+Pemicu terjadwal yang gagal tetap dikabarkan lewat email (bagian *Notifikasi gangguan*).
+
 ## 9. Keamanan
 
 - Repo GitHub **publik**. Karena itu yang **tidak** di-upload (lihat `.gitignore`):
@@ -670,6 +754,9 @@ menampilkan "Lapor belum dibuka".
 | "Izin lokasi ditolak" | Di HP: izinkan akses lokasi untuk situs/aplikasi, lalu Ambil ulang lokasi. |
 | Simpan Rekap gagal / API error | Cek deployment Apps Script masih aktif (Terapkan → Kelola deployment). |
 | Push tidak tampil di situs | Tab Actions di GitHub: pastikan workflow hijau; file harus di folder `web/`. |
+| Actions merah di job **periksa** | Kode baru rusak, deploy dibatalkan (situs tetap versi lama). Buka job → baris ✗ menyebut file/error. Perbaiki atau *Revert* commit. |
+| Anggota melihat "Aplikasi gagal dibuka" | Coba lagi dengan sinyal bagus. Bila banyak anggota: kemungkinan versi baru rusak → rollback (bagian *Pengaman otomatis*, C). |
+| Muncul bilah merah "Terjadi gangguan" | Ketuk Muat ulang. Bila sering, minta `CW_PENGAMAN.log()` / tangkapan layar dan rollback bila baru saja ada perubahan. |
 
 ## 12. Uji coba lokal (opsional)
 

@@ -2923,4 +2923,6 @@
   }
 
   if (pin) mulai(); else showLogin();
+  // pengaman.js: aplikasi berhasil dimulai (error sesudah ini hanya memunculkan bilah "Muat ulang")
+  if (window.CW_PENGAMAN) window.CW_PENGAMAN.siap();
 })();
